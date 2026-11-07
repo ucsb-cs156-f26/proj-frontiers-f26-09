@@ -827,6 +827,86 @@ describe("StaffTabComponent Tests", () => {
     expect(openSpy).toHaveBeenCalledWith("/api/csv/staff?courseId=7", "_blank");
   });
 
+  test("Download Staff CSV has a help icon that opens the CSV help page", async () => {
+    const openSpy = vi.fn();
+    window.open = openSpy;
+    render(
+      <QueryClientProvider client={queryClient}>
+        <StaffTabComponent
+          courseId={7}
+          testIdPrefix={testId}
+          currentUser={currentUserFixtures.instructorUser}
+        />
+      </QueryClientProvider>,
+    );
+
+    const downloadCsvButton = await screen.findByTestId(
+      `${testId}-download-csv-button`,
+    );
+    // room for the icon at the right end of the button
+    expect(downloadCsvButton).toHaveClass("w-100 pe-5");
+    expect(downloadCsvButton.parentElement).toHaveClass(
+      "d-flex align-items-center position-relative",
+    );
+
+    const infoIcon = screen.getByTestId(`${testId}-download-csv-info-icon`);
+    expect(infoIcon).toHaveStyle({
+      position: "absolute",
+      top: "50%",
+      transform: "translateY(-50%)",
+      color: "#fff",
+      cursor: "pointer",
+      userSelect: "none",
+    });
+    expect(infoIcon.style.right).toBe("0.75rem");
+    expect(infoIcon.style.fontSize).toBe("0.9rem");
+
+    fireEvent.click(infoIcon);
+    expect(openSpy).toHaveBeenCalledTimes(1);
+    expect(openSpy).toHaveBeenCalledWith(
+      "/help/csv#staff-information",
+      "_blank",
+    );
+  });
+
+  test("the Download Staff CSV help icon has a tooltip", async () => {
+    render(
+      <QueryClientProvider client={queryClient}>
+        <StaffTabComponent
+          courseId={7}
+          testIdPrefix={testId}
+          currentUser={currentUserFixtures.instructorUser}
+        />
+      </QueryClientProvider>,
+    );
+
+    fireEvent.mouseOver(
+      await screen.findByTestId(`${testId}-download-csv-info-icon`),
+    );
+    const tooltip = await screen.findByRole("tooltip");
+    expect(tooltip).toHaveAttribute("id", "csv-download-help-tooltip");
+    expect(tooltip).toHaveTextContent(
+      "Staff CSV Download Format Help (same format as upload)",
+    );
+  });
+
+  test("the Upload Staff CSV help icon has a tooltip", async () => {
+    render(
+      <QueryClientProvider client={queryClient}>
+        <StaffTabComponent
+          courseId={7}
+          testIdPrefix={testId}
+          currentUser={currentUserFixtures.instructorUser}
+        />
+      </QueryClientProvider>,
+    );
+
+    fireEvent.mouseOver(await screen.findByTestId(`${testId}-csv-info-icon`));
+    const tooltip = await screen.findByRole("tooltip");
+    expect(tooltip).toHaveAttribute("id", "csv-help-tooltip");
+    expect(tooltip).toHaveTextContent("Staff CSV Upload Format Help");
+  });
+
   test("Download Staff CSV button is only shown to instructors", async () => {
     render(
       <QueryClientProvider client={queryClient}>

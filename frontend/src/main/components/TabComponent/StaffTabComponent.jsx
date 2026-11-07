@@ -148,29 +148,13 @@ export default function StaffTabComponent({
               >
                 Upload Staff CSV
               </Button>
-              <OverlayTrigger
-                placement="right"
-                overlay={
-                  <Tooltip id="csv-help-tooltip">
-                    Staff CSV Upload Format Help
-                  </Tooltip>
-                }
+              <CsvHelpIcon
+                tooltipId="csv-help-tooltip"
+                onClick={openCsvHelp}
+                testId={`${testIdPrefix}-csv-info-icon`}
               >
-                <BsInfoCircle
-                  onClick={openCsvHelp}
-                  style={{
-                    position: "absolute",
-                    top: "50%",
-                    right: "0.75rem",
-                    transform: "translateY(-50%)",
-                    color: "#fff",
-                    cursor: "pointer",
-                    fontSize: "0.9rem",
-                    userSelect: "none",
-                  }}
-                  data-testid={`${testIdPrefix}-csv-info-icon`}
-                />
-              </OverlayTrigger>
+                Staff CSV Upload Format Help
+              </CsvHelpIcon>
             </div>
           </Col>
           <Col>
@@ -183,13 +167,22 @@ export default function StaffTabComponent({
             </Button>
           </Col>
           <Col>
-            <Button
-              onClick={downloadCsv}
-              data-testid={`${testIdPrefix}-download-csv-button`}
-              className="w-100"
-            >
-              Download Staff CSV
-            </Button>
+            <div className="d-flex align-items-center position-relative">
+              <Button
+                onClick={downloadCsv}
+                data-testid={`${testIdPrefix}-download-csv-button`}
+                className="w-100 pe-5"
+              >
+                Download Staff CSV
+              </Button>
+              <CsvHelpIcon
+                tooltipId="csv-download-help-tooltip"
+                onClick={openCsvHelp}
+                testId={`${testIdPrefix}-download-csv-info-icon`}
+              >
+                Staff CSV Download Format Help (same format as upload)
+              </CsvHelpIcon>
+            </div>
           </Col>
         </Row>
       )}
@@ -239,5 +232,34 @@ export default function StaffTabComponent({
         testIdPrefix={`${testIdPrefix}-StaffEmailsCard`}
       />
     </div>
+  );
+}
+
+/**
+ * An info icon placed over the right end of a CSV button; hovering shows the
+ * tooltip given as children, and clicking calls onClick (which opens the CSV
+ * help page).
+ */
+function CsvHelpIcon({ tooltipId, onClick, testId, children }) {
+  return (
+    <OverlayTrigger
+      placement="right"
+      overlay={<Tooltip id={tooltipId}>{children}</Tooltip>}
+    >
+      <BsInfoCircle
+        onClick={onClick}
+        style={{
+          position: "absolute",
+          top: "50%",
+          right: "0.75rem",
+          transform: "translateY(-50%)",
+          color: "#fff",
+          cursor: "pointer",
+          fontSize: "0.9rem",
+          userSelect: "none",
+        }}
+        data-testid={testId}
+      />
+    </OverlayTrigger>
   );
 }
