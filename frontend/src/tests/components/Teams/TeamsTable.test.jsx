@@ -795,4 +795,102 @@ describe("TeamsTable tests", () => {
     fireEvent.click(header);
     expect(header).toHaveAttribute("aria-expanded", "true");
   });
+
+  describe("Expand All and Collapse All", () => {
+    const renderTable = (teams, instructorView = true) => (
+      <QueryClientProvider client={queryClient}>
+        <MemoryRouter>
+          <TeamsTable
+            teams={teams}
+            currentUser={currentUserFixtures.instructorUser}
+            courseId="12"
+            testIdPrefix={testId}
+            instructorView={instructorView}
+          />
+        </MemoryRouter>
+      </QueryClientProvider>
+    );
+    const header = (teamId) =>
+      screen.getByTestId(`${testId}-${teamId}-name`).closest("button");
+
+    beforeEach(() => {
+      axiosMock.onGet("/api/rosterstudents/course/12").reply(200, []);
+    });
+
+    test("instructors get Expand All and Collapse All buttons", () => {
+      render(renderTable(teamsFixtures.teams));
+
+      const expandAll = screen.getByTestId(`${testId}-expand-all`);
+      const collapseAll = screen.getByTestId(`${testId}-collapse-all`);
+      expect(expandAll).toHaveTextContent("Expand All");
+      expect(collapseAll).toHaveTextContent("Collapse All");
+      for (const button of [expandAll, collapseAll]) {
+        expect(button).toHaveClass("btn-outline-secondary");
+        expect(button).toHaveClass("btn-sm");
+      }
+      expect(expandAll.parentElement).toHaveClass(
+        "d-flex justify-content-end gap-2 mb-2",
+      );
+    });
+
+    test("teams start closed; Expand All opens them all and Collapse All closes them all", () => {
+      render(renderTable(teamsFixtures.teams));
+
+      expect(header(3)).toHaveAttribute("aria-expanded", "false");
+      expect(header(4)).toHaveAttribute("aria-expanded", "false");
+
+      fireEvent.click(screen.getByTestId(`${testId}-expand-all`));
+      expect(header(3)).toHaveAttribute("aria-expanded", "true");
+      expect(header(4)).toHaveAttribute("aria-expanded", "true");
+
+      fireEvent.click(screen.getByTestId(`${testId}-collapse-all`));
+      expect(header(3)).toHaveAttribute("aria-expanded", "false");
+      expect(header(4)).toHaveAttribute("aria-expanded", "false");
+    });
+
+    test("opening a team leaves the other open teams open", () => {
+      render(renderTable(teamsFixtures.teams));
+
+      fireEvent.click(header(3));
+      expect(header(3)).toHaveAttribute("aria-expanded", "true");
+      expect(header(4)).toHaveAttribute("aria-expanded", "false");
+
+      fireEvent.click(header(4));
+      expect(header(3)).toHaveAttribute("aria-expanded", "true");
+      expect(header(4)).toHaveAttribute("aria-expanded", "true");
+
+      fireEvent.click(header(3));
+      expect(header(3)).toHaveAttribute("aria-expanded", "false");
+      expect(header(4)).toHaveAttribute("aria-expanded", "true");
+    });
+
+    test("an open team stays open when the list of teams shown changes", () => {
+      const [team3, team4] = teamsFixtures.teams;
+      const { rerender } = render(renderTable([team3, team4]));
+
+      fireEvent.click(header(4));
+      expect(header(4)).toHaveAttribute("aria-expanded", "true");
+
+      // e.g. a search that hides team 3, which moves team 4 to the top
+      rerender(renderTable([team4]));
+      expect(header(4)).toHaveAttribute("aria-expanded", "true");
+
+      rerender(renderTable([team3, team4]));
+      expect(header(3)).toHaveAttribute("aria-expanded", "false");
+      expect(header(4)).toHaveAttribute("aria-expanded", "true");
+    });
+
+    test("students get no Expand All or Collapse All buttons, and their teams start open", () => {
+      render(renderTable(teamsFixtures.teams, false));
+
+      expect(
+        screen.queryByTestId(`${testId}-expand-all`),
+      ).not.toBeInTheDocument();
+      expect(
+        screen.queryByTestId(`${testId}-collapse-all`),
+      ).not.toBeInTheDocument();
+      expect(header(3)).toHaveAttribute("aria-expanded", "true");
+      expect(header(4)).toHaveAttribute("aria-expanded", "true");
+    });
+  });
 });

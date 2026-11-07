@@ -187,6 +187,9 @@ describe("HelpCsvPage tests", () => {
 
     // Staff Information section
     expect(screen.getByText("Staff Information")).toBeInTheDocument();
+    expect(screen.getByTestId("staffCsvIntro")).toHaveTextContent(
+      "Instructors can upload course staff from a simple CSV file with the following format. Download Staff CSV on the Staff tab of a course downloads the course's staff in this same format, so the same format is used for downloading and uploading: the staff downloaded from one course can be uploaded to another.",
+    );
     const staffAccordion = screen.getByTestId("staffAccordion");
     expect(staffAccordion).toBeInTheDocument();
     expect(

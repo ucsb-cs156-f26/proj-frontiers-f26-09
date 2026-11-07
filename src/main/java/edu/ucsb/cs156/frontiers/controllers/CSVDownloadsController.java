@@ -4,12 +4,14 @@ import com.opencsv.bean.StatefulBeanToCsv;
 import com.opencsv.exceptions.CsvDataTypeMismatchException;
 import com.opencsv.exceptions.CsvRequiredFieldEmptyException;
 import edu.ucsb.cs156.frontiers.entities.Course;
+import edu.ucsb.cs156.frontiers.entities.CourseStaff;
 import edu.ucsb.cs156.frontiers.entities.RosterStudent;
 import edu.ucsb.cs156.frontiers.enums.RosterStatus;
 import edu.ucsb.cs156.frontiers.errors.EntityNotFoundException;
 import edu.ucsb.cs156.frontiers.models.NameAndTeam;
 import edu.ucsb.cs156.frontiers.models.RosterStudentDTO;
 import edu.ucsb.cs156.frontiers.repositories.CourseRepository;
+import edu.ucsb.cs156.frontiers.repositories.CourseStaffRepository;
 import edu.ucsb.cs156.frontiers.repositories.RosterStudentRepository;
 import edu.ucsb.cs156.frontiers.services.RosterStudentDTOService;
 import edu.ucsb.cs156.frontiers.services.SectionTranslationService;
@@ -51,6 +53,8 @@ public class CSVDownloadsController extends ApiController {
   @Autowired private RosterStudentDTOService rosterStudentDTOService;
 
   @Autowired private RosterStudentRepository rosterStudentRepository;
+
+  @Autowired private CourseStaffRepository courseStaffRepository;
 
   @Autowired private SectionTranslationService sectionTranslationService;
 
@@ -99,6 +103,61 @@ public class CSVDownloadsController extends ApiController {
         .header(
             HttpHeaders.CONTENT_DISPOSITION,
             String.format("attachment;filename=%s_roster.csv", course.getCourseName()))
+        .header(HttpHeaders.CONTENT_TYPE, "text/csv; charset=UTF-8")
+        .header(HttpHeaders.ACCESS_CONTROL_EXPOSE_HEADERS, HttpHeaders.CONTENT_DISPOSITION)
+        .body(stream);
+  }
+
+  @Operation(
+      summary = "Download CSV File of Course Staff",
+      description =
+          "Returns a CSV file of the course's staff, one row per staff member, with the header "
+              + CourseStaffCSVController.STAFF_CSV_HEADERS
+              + ". This is the format that Upload Staff CSV (POST /api/coursestaff/upload/csv)"
+              + " accepts, so the file can be uploaded to another course.",
+      responses = {
+        @ApiResponse(
+            responseCode = "200",
+            description = "CSV file",
+            content =
+                @Content(
+                    mediaType = "text/csv",
+                    schema = @Schema(type = "string", format = "binary"))),
+        @ApiResponse(responseCode = "404", description = "Course not found"),
+        @ApiResponse(responseCode = "500", description = "Internal Server Error")
+      })
+  @GetMapping(value = "/staff", produces = "text/csv")
+  @PreAuthorize("@CourseSecurity.hasInstructorPermissions(#root, #courseId)")
+  public ResponseEntity<StreamingResponseBody> staffCsv(
+      @Parameter(name = "courseId", description = "course id", example = "1") @RequestParam
+          Long courseId)
+      throws EntityNotFoundException {
+    Course course =
+        courseRepository
+            .findById(courseId)
+            .orElseThrow(() -> new EntityNotFoundException(Course.class, courseId));
+    StreamingResponseBody stream =
+        (outputStream) -> {
+          Iterable<CourseStaff> staff = courseStaffRepository.findByCourseId(courseId);
+          CSVFormat format =
+              CSVFormat.DEFAULT
+                  .builder()
+                  .setHeader(CourseStaffCSVController.STAFF_CSV_HEADERS.split(","))
+                  .build();
+          try (Writer writer = new OutputStreamWriter(outputStream, StandardCharsets.UTF_8);
+              CSVPrinter csvPrinter = new CSVPrinter(writer, format)) {
+            for (CourseStaff staffMember : staff) {
+              csvPrinter.printRecord(
+                  staffMember.getFirstName(), staffMember.getLastName(), staffMember.getEmail());
+            }
+          }
+        };
+
+    return ResponseEntity.ok()
+        .contentType(MediaType.parseMediaType("text/csv; charset=UTF-8"))
+        .header(
+            HttpHeaders.CONTENT_DISPOSITION,
+            String.format("attachment;filename=%s_staff.csv", course.getCourseName()))
         .header(HttpHeaders.CONTENT_TYPE, "text/csv; charset=UTF-8")
         .header(HttpHeaders.ACCESS_CONTROL_EXPOSE_HEADERS, HttpHeaders.CONTENT_DISPOSITION)
         .body(stream);

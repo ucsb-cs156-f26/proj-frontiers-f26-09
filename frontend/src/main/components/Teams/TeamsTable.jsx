@@ -27,7 +27,13 @@ export default function TeamsTable({
   const canManage =
     canManageTeams ??
     (instructorView && hasRole(currentUser, "ROLE_INSTRUCTOR"));
-  const defaultOpenTeamKeys = teams.map((_team, index) => `${index}`);
+  // Each team's accordion item is keyed by its id, so the same teams stay open
+  // when the list of teams shown changes (e.g. when it is searched). Which
+  // teams are open is a single piece of state, so Expand All and Collapse All
+  // each cause a single re-render. Instructors start with every team closed;
+  // students, who usually have one or two teams, start with them all open.
+  const teamKey = (team) => `${team.id}`;
+  const defaultOpenTeamKeys = instructorView ? [] : teams.map(teamKey);
   const openTeamKeys = selectedTeamKeys ?? defaultOpenTeamKeys;
 
   const { data: rosterStudents } = useBackend(
@@ -288,14 +294,34 @@ export default function TeamsTable({
         </ModalHeader>
         <ModalBody>{errorPostMemberModal.message}</ModalBody>
       </Modal>
+      {instructorView && (
+        <div className="d-flex justify-content-end gap-2 mb-2">
+          <Button
+            variant="outline-secondary"
+            size="sm"
+            onClick={() => setSelectedTeamKeys(teams.map(teamKey))}
+            data-testid={`${testIdPrefix}-expand-all`}
+          >
+            Expand All
+          </Button>
+          <Button
+            variant="outline-secondary"
+            size="sm"
+            onClick={() => setSelectedTeamKeys([])}
+            data-testid={`${testIdPrefix}-collapse-all`}
+          >
+            Collapse All
+          </Button>
+        </div>
+      )}
       <Accordion
-        alwaysOpen={!instructorView}
-        activeKey={instructorView ? undefined : openTeamKeys}
-        onSelect={instructorView ? undefined : setSelectedTeamKeys}
+        alwaysOpen
+        activeKey={openTeamKeys}
+        onSelect={setSelectedTeamKeys}
         data-testid={`${testIdPrefix}-accordion`}
       >
-        {teams.map((team, index) => (
-          <Accordion.Item eventKey={index.toString()} key={team.id}>
+        {teams.map((team) => (
+          <Accordion.Item eventKey={teamKey(team)} key={team.id}>
             <Accordion.Header>
               <span className="d-flex align-items-center justify-content-between w-100">
                 <h3 data-testid={`${testIdPrefix}-${team.id}-name`}>

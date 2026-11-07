@@ -244,9 +244,12 @@ export default function HelpCsvPage() {
         <h2 id="staff-information" className="mt-4">
           Staff Information
         </h2>
-        <p>
+        <p data-testid="staffCsvIntro">
           Instructors can upload course staff from a simple CSV file with the
-          following format.
+          following format. <strong>Download Staff CSV</strong> on the Staff tab
+          of a course downloads the course&apos;s staff in this same format, so
+          the same format is used for downloading and uploading: the staff
+          downloaded from one course can be uploaded to another.
         </p>
         <Accordion data-testid="staffAccordion">
           <Accordion.Item eventKey="0">
