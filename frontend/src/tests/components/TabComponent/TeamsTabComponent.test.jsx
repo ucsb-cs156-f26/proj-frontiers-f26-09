@@ -480,6 +480,10 @@ describe("TeamTabComponent tests", () => {
     expect(responseModal).toHaveTextContent(
       'CSV Import Complete with Rejected Members (Error 409). Rejected Students: [ "user@ucsb.edu", "user2@ucsb.edu" ], Existing Students: 0, New Students: 5',
     );
+    // every row had a team, so nothing comes before the rejected members
+    expect(responseModal.querySelector(".modal-body")).toHaveTextContent(
+      /^CSV Import Complete with Rejected Members \(Error 409\)\./,
+    );
     expect(responseModal).toHaveClass("modal-dialog modal-dialog-centered");
 
     // Close the success modal
@@ -1080,8 +1084,8 @@ describe("TeamTabComponent tests", () => {
     const responseModal = await screen.findByTestId(
       `${testId}-partial-success-post-csv-team-modal`,
     );
-    expect(responseModal).toHaveTextContent(
-      "The following emails did not have a team: noteam@chicostate.edu, blankteam@chicostate.edu. CSV Import Complete with Rejected Members (Error 409). Rejected Students: [], Existing Students: 0, New Students: 3",
+    expect(responseModal.querySelector(".modal-body")).toHaveTextContent(
+      /^The following emails did not have a team: noteam@chicostate\.edu, blankteam@chicostate\.edu\. CSV Import Complete with Rejected Members \(Error 409\)\. Rejected Students: \[\], Existing Students: 0, New Students: 3$/,
     );
   });
   describe("Search filter works correctly", () => {
