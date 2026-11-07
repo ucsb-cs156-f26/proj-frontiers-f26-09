@@ -204,7 +204,9 @@ describe("CourseWarningBanner tests", () => {
         .reply(200, {
           message: "hideBasePermissionWarning set to true for course with id 1",
         });
+      // queryClient is shared, so forget calls recorded before this test
       const invalidateSpy = vi.spyOn(queryClient, "invalidateQueries");
+      invalidateSpy.mockClear();
       await renderWithBasePermissionWarning();
 
       fireEvent.click(
@@ -360,7 +362,9 @@ describe("CourseWarningBanner tests", () => {
         .reply(200, {
           message: "hideFreePlanWarning set to true for course with id 1",
         });
+      // queryClient is shared, so forget calls recorded before this test
       const invalidateSpy = vi.spyOn(queryClient, "invalidateQueries");
+      invalidateSpy.mockClear();
 
       render(
         <QueryClientProvider client={queryClient}>
