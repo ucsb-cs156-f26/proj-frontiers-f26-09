@@ -173,6 +173,87 @@ describe("CourseWarningBanner tests", () => {
     ).not.toBeInTheDocument();
   });
 
+  describe("dismissing the default base permission warning", () => {
+    const renderWithBasePermissionWarning = async () => {
+      axiosMock.onGet("/api/courses/warnings/1").reply(200, {
+        showDefaultBasePermissions: true,
+      });
+      render(
+        <QueryClientProvider client={queryClient}>
+          <CourseWarningBanner courseId={1} orgName="ucsb-cs156-s26" />
+        </QueryClientProvider>,
+      );
+      await screen.findByTestId("CourseWarningBanner-defaultBasePermission");
+    };
+
+    test("the warning has a Dismiss button", async () => {
+      await renderWithBasePermissionWarning();
+
+      const dismiss = screen.getByTestId(
+        "CourseWarningBanner-defaultBasePermission-dismiss",
+      );
+      expect(dismiss).toHaveTextContent("Dismiss");
+      expect(dismiss).toHaveClass("btn-sm");
+      expect(dismiss).toHaveClass("btn-outline-secondary");
+      expect(dismiss).toHaveClass("ms-2");
+    });
+
+    test("dismiss posts to the backend, hides the warning, and refreshes the course", async () => {
+      axiosMock
+        .onPost("/api/courses/warnings/hideBasePermissionWarning/1")
+        .reply(200, {
+          message: "hideBasePermissionWarning set to true for course with id 1",
+        });
+      const invalidateSpy = vi.spyOn(queryClient, "invalidateQueries");
+      await renderWithBasePermissionWarning();
+
+      fireEvent.click(
+        screen.getByTestId("CourseWarningBanner-defaultBasePermission-dismiss"),
+      );
+
+      await waitFor(() => {
+        expect(axiosMock.history.post.length).toBe(1);
+      });
+      expect(axiosMock.history.post[0].url).toBe(
+        "/api/courses/warnings/hideBasePermissionWarning/1",
+      );
+      await waitFor(() => {
+        expect(mockToast).toHaveBeenCalledWith(
+          "Default base permission warning dismissed for this course",
+        );
+      });
+      expect(
+        screen.queryByTestId("CourseWarningBanner-defaultBasePermission"),
+      ).not.toBeInTheDocument();
+      await waitFor(() => {
+        expect(invalidateSpy).toHaveBeenCalledWith({
+          queryKey: ["/api/courses/1"],
+        });
+      });
+    });
+
+    test("the warning stays visible when dismissing fails", async () => {
+      axiosMock
+        .onPost("/api/courses/warnings/hideBasePermissionWarning/1")
+        .reply(500, {});
+      await renderWithBasePermissionWarning();
+
+      fireEvent.click(
+        screen.getByTestId("CourseWarningBanner-defaultBasePermission-dismiss"),
+      );
+
+      await waitFor(() => {
+        expect(mockToast).toHaveBeenCalled();
+      });
+      expect(mockToast).not.toHaveBeenCalledWith(
+        "Default base permission warning dismissed for this course",
+      );
+      expect(
+        screen.getByTestId("CourseWarningBanner-defaultBasePermission"),
+      ).toBeInTheDocument();
+    });
+  });
+
   describe("free plan warning", () => {
     test("renders free plan warning with upgrade link and signed commits note", async () => {
       axiosMock.onGet("/api/courses/warnings/1").reply(200, {
