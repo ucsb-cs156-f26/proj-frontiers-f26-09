@@ -480,6 +480,10 @@ describe("TeamTabComponent tests", () => {
     expect(responseModal).toHaveTextContent(
       'CSV Import Complete with Rejected Members (Error 409). Rejected Students: [ "user@ucsb.edu", "user2@ucsb.edu" ], Existing Students: 0, New Students: 5',
     );
+    // every row had a team, so nothing comes before the rejected members
+    expect(responseModal.querySelector(".modal-body")).toHaveTextContent(
+      /^CSV Import Complete with Rejected Members \(Error 409\)\./,
+    );
     expect(responseModal).toHaveClass("modal-dialog modal-dialog-centered");
 
     // Close the success modal
@@ -1049,6 +1053,39 @@ describe("TeamTabComponent tests", () => {
       expect(
         screen.queryByTestId(`${testId}-error-post-csv-team-modal`),
       ).not.toBeInTheDocument(),
+    );
+  });
+  test("CsvForm lists the emails on rows that did not have a team", async () => {
+    const file = new File(["there"], "teams.csv", { type: "text/csv" });
+
+    axiosMock
+      .onGet("/api/teams/all?courseId=1")
+      .reply(200, teamsFixtures.teams);
+
+    axiosMock
+      .onPost("/api/teams/upload/csv")
+      .reply(409, loadTeamResultFixtures.missingTeam);
+
+    const user = userEvent.setup();
+    render(
+      <QueryClientProvider client={queryClient}>
+        <TeamsTabComponent
+          courseId={1}
+          testIdPrefix={testId}
+          currentUser={currentUserFixtures.instructorUser}
+        />
+      </QueryClientProvider>,
+    );
+    fireEvent.click(await screen.findByTestId(`${testId}-csv-button`));
+    const upload = await screen.findByTestId("TeamsCSVUploadForm-upload");
+    await user.upload(upload, file);
+    fireEvent.click(screen.getByTestId("TeamsCSVUploadForm-submit"));
+
+    const responseModal = await screen.findByTestId(
+      `${testId}-partial-success-post-csv-team-modal`,
+    );
+    expect(responseModal.querySelector(".modal-body")).toHaveTextContent(
+      /^The following emails did not have a team: noteam@chicostate\.edu, blankteam@chicostate\.edu\. CSV Import Complete with Rejected Members \(Error 409\)\. Rejected Students: \[\], Existing Students: 0, New Students: 3$/,
     );
   });
   describe("Search filter works correctly", () => {

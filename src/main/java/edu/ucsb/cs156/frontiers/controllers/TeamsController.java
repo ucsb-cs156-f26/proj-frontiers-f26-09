@@ -61,8 +61,21 @@ public class TeamsController extends ApiController {
     }
   }
 
+  /**
+   * Result of a team CSV upload.
+   *
+   * @param typeMatched the CSV format that was recognized
+   * @param created number of team memberships created
+   * @param existing number of team memberships that already existed
+   * @param rejected emails on rows that could not be added (e.g. not on the roster)
+   * @param missingTeam emails on rows that did not name a team
+   */
   public record TeamCreationResponse(
-      TeamSourceType typeMatched, Integer created, Integer existing, List<String> rejected) {}
+      TeamSourceType typeMatched,
+      Integer created,
+      Integer existing,
+      List<String> rejected,
+      List<String> missingTeam) {}
 
   public record TeamMemberMapping(
       Long teamId,
@@ -122,11 +135,14 @@ public class TeamsController extends ApiController {
   /**
    * Upload teams in CSV format (team, email) It is important to keep the code in this method
    * consistent with the code for adding a single roster student. A row that names a staff team is
-   * rejected, since a staff team's members are the course staff.
+   * rejected, since a staff team's members are the course staff. A row with an empty team is
+   * skipped and its email is reported in {@code missingTeam}; the other rows are still processed.
+   * If any row was rejected or had no team, the response status is 409 (Conflict).
    *
    * @param courseId course the teams are for
    * @param file csv file with roster student emails and team assignments
-   * @return Count of students added to teams, already existing, and rejected students
+   * @return Count of students added to teams and already existing, plus the emails of rejected rows
+   *     and of rows without a team
    */
   @Operation(summary = "Upload team assignments; CSV in format team,email")
   @PreAuthorize("@CourseSecurity.hasManagePermissions(#root, #courseId)")
@@ -146,6 +162,7 @@ public class TeamsController extends ApiController {
     int counts[] = {0, 0};
 
     List<String> failed = new ArrayList<>();
+    List<String> missingTeam = new ArrayList<>();
 
     try (InputStream inputStream = new BufferedInputStream(file.getInputStream());
         InputStreamReader reader = new InputStreamReader(inputStream);
@@ -158,6 +175,8 @@ public class TeamsController extends ApiController {
         TeamMemberResult rowResult = fromCSVRow(row, sourceType, course);
         if (rowResult.status == TeamMemberStatus.MISSING) {
           failed.add(rowResult.rejectedEmail);
+        } else if (rowResult.status == TeamMemberStatus.NO_TEAM) {
+          missingTeam.add(rowResult.rejectedEmail);
         } else {
           counts[rowResult.status.ordinal()]++;
         }
@@ -167,11 +186,12 @@ public class TeamsController extends ApiController {
               sourceType,
               counts[TeamMemberStatus.CREATED.ordinal()],
               counts[TeamMemberStatus.EXISTS.ordinal()],
-              failed);
+              failed,
+              missingTeam);
 
       launchPushTeamsToGithubJob(courseId);
 
-      if (!failed.isEmpty()) {
+      if (!failed.isEmpty() || !missingTeam.isEmpty()) {
         return ResponseEntity.status(HttpStatus.CONFLICT).body(response);
       } else {
         return ResponseEntity.ok(response);
@@ -353,7 +373,8 @@ public class TeamsController extends ApiController {
   public enum TeamMemberStatus {
     CREATED,
     EXISTS,
-    MISSING
+    MISSING,
+    NO_TEAM
   }
 
   public static final String SIMPLE_HEADERS = "team,email";
@@ -392,6 +413,11 @@ public class TeamsController extends ApiController {
   }
 
   public TeamMemberResult teamMemberFromSimpleCsv(String[] row, Course course) {
+    if (row[0].isBlank()) {
+      // Without a team name there is no team to add the student to (and a team can't have a
+      // blank name), so skip this row and report its email
+      return new TeamMemberResult(null, TeamMemberStatus.NO_TEAM, row[1]);
+    }
     Optional<RosterStudent> student =
         rosterStudentRepository.findByCourseIdAndEmail(course.getId(), row[1]);
     Optional<Team> team = teamRepository.findByCourseIdAndName(course.getId(), row[0]);
