@@ -173,8 +173,13 @@ export default function TeamsTabComponent({
             message: `Upload failed (Error 400). Please ensure your CSV follows one of the formats documented in the 'Help' section.`,
           });
         } else if (error.response.status === 409) {
+          const missingTeam = error.response.data.missingTeam ?? [];
+          const missingTeamMessage =
+            missingTeam.length > 0
+              ? `The following emails did not have a team: ${missingTeam.join(", ")}. `
+              : "";
           setPartialSuccessPostCSVTeamModal({
-            message: `CSV Import Complete with Rejected Members (Error 409). Rejected Students: ${JSON.stringify(error.response.data.rejected, null, 2)}, Existing Students: ${JSON.stringify(error.response.data.existing, null, 2)}, New Students: ${JSON.stringify(error.response.data.created, null, 2)}`,
+            message: `${missingTeamMessage}CSV Import Complete with Rejected Members (Error 409). Rejected Students: ${JSON.stringify(error.response.data.rejected, null, 2)}, Existing Students: ${JSON.stringify(error.response.data.existing, null, 2)}, New Students: ${JSON.stringify(error.response.data.created, null, 2)}`,
           });
         } else {
           setErrorPostCSVTeamModal({

@@ -1051,6 +1051,39 @@ describe("TeamTabComponent tests", () => {
       ).not.toBeInTheDocument(),
     );
   });
+  test("CsvForm lists the emails on rows that did not have a team", async () => {
+    const file = new File(["there"], "teams.csv", { type: "text/csv" });
+
+    axiosMock
+      .onGet("/api/teams/all?courseId=1")
+      .reply(200, teamsFixtures.teams);
+
+    axiosMock
+      .onPost("/api/teams/upload/csv")
+      .reply(409, loadTeamResultFixtures.missingTeam);
+
+    const user = userEvent.setup();
+    render(
+      <QueryClientProvider client={queryClient}>
+        <TeamsTabComponent
+          courseId={1}
+          testIdPrefix={testId}
+          currentUser={currentUserFixtures.instructorUser}
+        />
+      </QueryClientProvider>,
+    );
+    fireEvent.click(await screen.findByTestId(`${testId}-csv-button`));
+    const upload = await screen.findByTestId("TeamsCSVUploadForm-upload");
+    await user.upload(upload, file);
+    fireEvent.click(screen.getByTestId("TeamsCSVUploadForm-submit"));
+
+    const responseModal = await screen.findByTestId(
+      `${testId}-partial-success-post-csv-team-modal`,
+    );
+    expect(responseModal).toHaveTextContent(
+      "The following emails did not have a team: noteam@chicostate.edu, blankteam@chicostate.edu. CSV Import Complete with Rejected Members (Error 409). Rejected Students: [], Existing Students: 0, New Students: 3",
+    );
+  });
   describe("Search filter works correctly", () => {
     const testId = "InstructorCourseShowPage";
     beforeEach(() => {
