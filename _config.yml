@@ -23,4 +23,4 @@ repo_name: "TBD"
 repo: ucsb-cs156-f26/proj-frontiers-f26-09
 owner: ucsb-cs156-f26
 repo_name: proj-frontiers-f26-09
-pull_requests: []
+pull_requests: [{"author":{"id":"U_kgDOC5Taaw","is_bot":false,"login":"8bitdoe","name":"Jerry Yang"},"headRefName":"jy-12-remove-dropped-students-from-teams","number":19,"title":"Remove dropped roster students from their teams","url":"https://github.com/ucsb-cs156-f26/proj-frontiers-f26-09/pull/19"}]
