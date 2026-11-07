@@ -25,6 +25,18 @@ import org.springframework.stereotype.Service;
 public class TeamCsvService {
 
   /**
+   * How many students are listed in each "Name,Team" column of the "by name" table in the formatted
+   * teams CSV ({@link #writeFormattedTeamsCsv(Writer, List)}).
+   */
+  public static final int NAMES_PER_COLUMN = 24;
+
+  /**
+   * How many teams are listed in each "Team,Name" column of the "by team" table in the formatted
+   * teams CSV ({@link #writeFormattedTeamsCsv(Writer, List)}).
+   */
+  public static final int TEAMS_PER_COLUMN = 4;
+
+  /**
    * Converts a name to Title Case: the first letter of each word is upper case and the rest lower
    * case. A new word starts after any non-letter character, so hyphenated names and names with
    * apostrophes are handled (e.g. "MARY-JANE O'BRIEN" becomes "Mary-Jane O'Brien"). Leading and
@@ -151,6 +163,32 @@ public class TeamCsvService {
   }
 
   /**
+   * Splits the items into columns of at most {@code perColumn} items, filling column by column:
+   * every column except the last one is full. Unlike {@link #layoutColumns}, the number of columns
+   * is not fixed; there are as many as needed, and always at least one (which is empty when there
+   * are no items).
+   *
+   * @param <T> the type of item being laid out (e.g. a student, or a whole team)
+   * @param items the items, in order
+   * @param perColumn the most items in one column, at least 1
+   * @return the columns, in order
+   * @throws IllegalArgumentException if perColumn is less than 1
+   */
+  public <T> List<List<T>> chunkColumns(List<T> items, int perColumn) {
+    if (perColumn < 1) {
+      throw new IllegalArgumentException("perColumn must be at least 1");
+    }
+    List<List<T>> result = new ArrayList<>();
+    for (int start = 0; start < items.size(); start += perColumn) {
+      result.add(items.subList(start, Math.min(start + perColumn, items.size())));
+    }
+    if (result.isEmpty()) {
+      result.add(List.of());
+    }
+    return result;
+  }
+
+  /**
    * Writes a CSV made of several side-by-side columns separated by a blank cell. The header line
    * repeats {@code headerCells} once per column; then there is one line per row of the longest
    * column. Each column is a list of rows, and each row a list of cells with the same length as
@@ -164,6 +202,18 @@ public class TeamCsvService {
   public void writeColumnsCsv(
       Writer writer, List<String> headerCells, List<List<List<String>>> columns)
       throws IOException {
+    try (CSVPrinter csvPrinter = new CSVPrinter(writer, CSVFormat.DEFAULT)) {
+      printColumns(csvPrinter, headerCells, columns);
+    }
+  }
+
+  /**
+   * Prints the side-by-side columns described in {@link #writeColumnsCsv} to a CSVPrinter, without
+   * closing it, so that several tables can be printed to one CSV file.
+   */
+  private void printColumns(
+      CSVPrinter csvPrinter, List<String> headerCells, List<List<List<String>>> columns)
+      throws IOException {
     int width = headerCells.size();
     List<String> blanks = new ArrayList<>();
     for (int i = 0; i < width; i++) {
@@ -171,27 +221,25 @@ public class TeamCsvService {
     }
     int rows = columns.stream().mapToInt(List::size).max().orElse(0);
 
-    try (CSVPrinter csvPrinter = new CSVPrinter(writer, CSVFormat.DEFAULT)) {
-      List<String> header = new ArrayList<>();
+    List<String> header = new ArrayList<>();
+    for (int c = 0; c < columns.size(); c++) {
+      if (c > 0) {
+        header.add("");
+      }
+      header.addAll(headerCells);
+    }
+    csvPrinter.printRecord(header);
+
+    for (int r = 0; r < rows; r++) {
+      List<String> row = new ArrayList<>();
       for (int c = 0; c < columns.size(); c++) {
         if (c > 0) {
-          header.add("");
+          row.add("");
         }
-        header.addAll(headerCells);
+        List<List<String>> column = columns.get(c);
+        row.addAll(r < column.size() ? column.get(r) : blanks);
       }
-      csvPrinter.printRecord(header);
-
-      for (int r = 0; r < rows; r++) {
-        List<String> row = new ArrayList<>();
-        for (int c = 0; c < columns.size(); c++) {
-          if (c > 0) {
-            row.add("");
-          }
-          List<List<String>> column = columns.get(c);
-          row.addAll(r < column.size() ? column.get(r) : blanks);
-        }
-        csvPrinter.printRecord(row);
-      }
+      csvPrinter.printRecord(row);
     }
   }
 
@@ -209,9 +257,25 @@ public class TeamCsvService {
       throws IOException {
     List<List<List<String>>> layout = new ArrayList<>();
     for (List<NameAndTeam> column : layoutColumns(entries, columns)) {
-      layout.add(column.stream().map(e -> List.of(e.name(), e.team())).toList());
+      layout.add(nameTeamRows(column));
     }
     writeColumnsCsv(writer, List.of("Name", "Team"), layout);
+  }
+
+  /** The rows of one "Name,Team" column: one row per entry. */
+  private static List<List<String>> nameTeamRows(List<NameAndTeam> entries) {
+    return entries.stream().map(e -> List.of(e.name(), e.team())).toList();
+  }
+
+  /** The rows of one "Team,Name" column: one row per member of each of the teams, in order. */
+  private static List<List<String>> teamNameRows(List<List<NameAndTeam>> teams) {
+    List<List<String>> rows = new ArrayList<>();
+    for (List<NameAndTeam> team : teams) {
+      for (NameAndTeam entry : team) {
+        rows.add(List.of(entry.team(), entry.name()));
+      }
+    }
+    return rows;
   }
 
   /**
@@ -257,15 +321,56 @@ public class TeamCsvService {
       throws IOException {
     List<List<List<String>>> layout = new ArrayList<>();
     for (List<List<NameAndTeam>> column : layoutColumns(groupByTeam(entries), columns)) {
-      List<List<String>> rows = new ArrayList<>();
-      for (List<NameAndTeam> team : column) {
-        for (NameAndTeam entry : team) {
-          rows.add(List.of(entry.team(), entry.name()));
-        }
-      }
-      layout.add(rows);
+      layout.add(teamNameRows(column));
     }
     writeColumnsCsv(writer, List.of("Team", "Name"), layout);
+  }
+
+  /**
+   * Writes the formatted teams CSV with {@link #NAMES_PER_COLUMN} names and {@link
+   * #TEAMS_PER_COLUMN} teams per column; see {@link #writeFormattedTeamsCsv(Writer, List, int,
+   * int)}.
+   *
+   * @param writer where to write the CSV
+   * @param entries the entries, in order
+   * @throws IOException if writing fails
+   */
+  public void writeFormattedTeamsCsv(Writer writer, List<NameAndTeam> entries) throws IOException {
+    writeFormattedTeamsCsv(writer, entries, NAMES_PER_COLUMN, TEAMS_PER_COLUMN);
+  }
+
+  /**
+   * Writes the formatted teams CSV: two tables, one after the other, each preceded by a title line.
+   * The "by name" table lists every entry in "Name,Team" column pairs of {@code namesPerColumn}
+   * rows each; the "by team" table lists the teams (see {@link #groupByTeam}) and their members in
+   * "Team,Name" column pairs of {@code teamsPerColumn} teams each, so a team is never split. Both
+   * fill column by column and use as many columns as needed. Imported into a spreadsheet, the file
+   * only needs formatting and splitting into two tabs to become a team sheet.
+   *
+   * @param writer where to write the CSV
+   * @param entries the entries, in order
+   * @param namesPerColumn the most names in one column of the "by name" table, at least 1
+   * @param teamsPerColumn the most teams in one column of the "by team" table, at least 1
+   * @throws IOException if writing fails
+   * @throws IllegalArgumentException if namesPerColumn or teamsPerColumn is less than 1
+   */
+  public void writeFormattedTeamsCsv(
+      Writer writer, List<NameAndTeam> entries, int namesPerColumn, int teamsPerColumn)
+      throws IOException {
+    List<List<List<String>>> byName = new ArrayList<>();
+    for (List<NameAndTeam> column : chunkColumns(entries, namesPerColumn)) {
+      byName.add(nameTeamRows(column));
+    }
+    List<List<List<String>>> byTeam = new ArrayList<>();
+    for (List<List<NameAndTeam>> column : chunkColumns(groupByTeam(entries), teamsPerColumn)) {
+      byTeam.add(teamNameRows(column));
+    }
+    try (CSVPrinter csvPrinter = new CSVPrinter(writer, CSVFormat.DEFAULT)) {
+      csvPrinter.printRecord("by name");
+      printColumns(csvPrinter, List.of("Name", "Team"), byName);
+      csvPrinter.printRecord("by team");
+      printColumns(csvPrinter, List.of("Team", "Name"), byTeam);
+    }
   }
 
   private static String join(String first, String lastPart) {
