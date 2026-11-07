@@ -33,6 +33,7 @@ export default function TeamsTable({
   // each cause a single re-render. Instructors start with every team closed;
   // students, who usually have one or two teams, start with them all open.
   const teamKey = (team) => `${team.id}`;
+  // Stryker disable next-line ArrayDeclaration : a key that matches no team opens no team, just like no key
   const defaultOpenTeamKeys = instructorView ? [] : teams.map(teamKey);
   const openTeamKeys = selectedTeamKeys ?? defaultOpenTeamKeys;
 
@@ -307,7 +308,10 @@ export default function TeamsTable({
           <Button
             variant="outline-secondary"
             size="sm"
-            onClick={() => setSelectedTeamKeys([])}
+            onClick={() => {
+              // Stryker disable next-line ArrayDeclaration : a key that matches no team opens no team, just like no key
+              setSelectedTeamKeys([]);
+            }}
             data-testid={`${testIdPrefix}-collapse-all`}
           >
             Collapse All

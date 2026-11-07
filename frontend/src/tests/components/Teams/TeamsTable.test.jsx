@@ -609,6 +609,57 @@ describe("TeamsTable tests", () => {
       "GitHub Login",
     ];
 
+    // These two tests use their own QueryClient, so that nothing cached by
+    // other tests can stand in for what this component loads.
+    const renderWithStaffTeam = (client) =>
+      render(
+        <QueryClientProvider client={client}>
+          <MemoryRouter>
+            <TeamsTable
+              teams={[teamsFixtures.teams[0], teamsFixtures.staffTeam]}
+              currentUser={currentUserFixtures.instructorUser}
+              courseId="12"
+              testIdPrefix={testId}
+            />
+          </MemoryRouter>
+        </QueryClientProvider>,
+      );
+
+    test("the course staff are cached under the same query key as on the Staff tab", async () => {
+      axiosMock
+        .onGet("/api/coursestaff/course?courseId=12")
+        .reply(200, courseStaffFixtures.staffWithEachStatus);
+      axiosMock.onGet("/api/rosterstudents/course/12").reply(200, []);
+      const client = new QueryClient();
+
+      renderWithStaffTeam(client);
+
+      await waitFor(() =>
+        expect(
+          client.getQueryData(["/api/coursestaff/course?courseId=12"]),
+        ).toEqual(courseStaffFixtures.staffWithEachStatus),
+      );
+    });
+
+    test("a staff team has no members while the course staff cannot be loaded", async () => {
+      axiosMock.onGet("/api/coursestaff/course?courseId=12").reply(500);
+      axiosMock.onGet("/api/rosterstudents/course/12").reply(200, []);
+      const client = new QueryClient({
+        defaultOptions: { queries: { retry: false } },
+      });
+
+      renderWithStaffTeam(client);
+
+      await waitFor(() =>
+        expect(
+          client.getQueryState(["/api/coursestaff/course?courseId=12"]).status,
+        ).toBe("error"),
+      );
+      expect(
+        screen.queryByTestId(`${testId}-7-members-table-cell-row-0-col-id`),
+      ).not.toBeInTheDocument();
+    });
+
     test("a staff team shows the course staff as its members, with no add or remove controls", async () => {
       axiosMock
         .onGet("/api/coursestaff/course?courseId=12")
