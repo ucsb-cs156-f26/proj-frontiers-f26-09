@@ -150,6 +150,7 @@ export default function StaffTabComponent({
               </Button>
               <CsvHelpIcon
                 tooltipId="csv-help-tooltip"
+                placement="right"
                 onClick={openCsvHelp}
                 testId={`${testIdPrefix}-csv-info-icon`}
               >
@@ -175,8 +176,10 @@ export default function StaffTabComponent({
               >
                 Download Staff CSV
               </Button>
+              {/* the button is at the right edge of the page, so the tooltip opens to the left */}
               <CsvHelpIcon
                 tooltipId="csv-download-help-tooltip"
+                placement="left"
                 onClick={openCsvHelp}
                 testId={`${testIdPrefix}-download-csv-info-icon`}
               >
@@ -237,13 +240,13 @@ export default function StaffTabComponent({
 
 /**
  * An info icon placed over the right end of a CSV button; hovering shows the
- * tooltip given as children, and clicking calls onClick (which opens the CSV
- * help page).
+ * tooltip given as children on the given side of the icon, and clicking calls
+ * onClick (which opens the CSV help page).
  */
-function CsvHelpIcon({ tooltipId, onClick, testId, children }) {
+function CsvHelpIcon({ tooltipId, placement, onClick, testId, children }) {
   return (
     <OverlayTrigger
-      placement="right"
+      placement={placement}
       overlay={<Tooltip id={tooltipId}>{children}</Tooltip>}
     >
       <BsInfoCircle

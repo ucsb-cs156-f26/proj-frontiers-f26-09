@@ -885,6 +885,8 @@ describe("StaffTabComponent Tests", () => {
     );
     const tooltip = await screen.findByRole("tooltip");
     expect(tooltip).toHaveAttribute("id", "csv-download-help-tooltip");
+    // the button is at the right edge of the page, so the tooltip is on the left
+    expect(tooltip).toHaveClass("bs-tooltip-start");
     expect(tooltip).toHaveTextContent(
       "Staff CSV Download Format Help (same format as upload)",
     );
@@ -904,6 +906,7 @@ describe("StaffTabComponent Tests", () => {
     fireEvent.mouseOver(await screen.findByTestId(`${testId}-csv-info-icon`));
     const tooltip = await screen.findByRole("tooltip");
     expect(tooltip).toHaveAttribute("id", "csv-help-tooltip");
+    expect(tooltip).toHaveClass("bs-tooltip-end");
     expect(tooltip).toHaveTextContent("Staff CSV Upload Format Help");
   });
 
