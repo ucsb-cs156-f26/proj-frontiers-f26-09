@@ -15,17 +15,18 @@ import {
 export default function CourseEmailsCard({
   courseId,
   type,
+  team,
   testIdPrefix = "CourseEmailsCard",
 }) {
   const [format, setFormat] = useState(EMAIL_FORMATS[0].value);
 
   const { data: emails } = useBackend(
-    [courseEmailsQueryKey(courseId), type, format],
+    [courseEmailsQueryKey(courseId), type, team, format],
     {
       // Stryker disable next-line StringLiteral : GET and empty string are equivalent
       method: "GET",
       url: "/api/courses/emails",
-      params: { courseId, type, format },
+      params: { courseId, type, format, ...(team && { team }) },
     },
     "",
     true,

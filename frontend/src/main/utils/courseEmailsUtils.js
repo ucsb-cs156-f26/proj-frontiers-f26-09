@@ -15,3 +15,8 @@ export const EMAIL_FORMATS = [
   { value: "ONE_PER_LINE", label: "One per line" },
   { value: "COMMA_SEPARATED", label: "Comma separated" },
 ];
+export const EMAIL_TYPES = [
+  { value: "STUDENTS", label: "Students" },
+  { value: "STAFF", label: "Staff" },
+  { value: "ALL", label: "All" },
+];
