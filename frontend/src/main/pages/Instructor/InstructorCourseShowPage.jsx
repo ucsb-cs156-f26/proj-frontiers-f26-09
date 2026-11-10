@@ -266,6 +266,15 @@ export default function InstructorCourseShowPage({
             canManageTeams={canManageTeams}
           />
         </Tab>
+        <Tab
+          eventKey={"emails"}
+          title={"Emails"}
+          className="pt-2"
+          mountOnEnter={true}
+          unmountOnExit={true}
+        >
+          <EmailsTabComponent courseId={courseId} testIdPrefix={testId} />
+        </Tab>
         {showSectionsTab && (
           <Tab eventKey={"sections"} title={"Sections"} className="pt-2">
             <SectionsTabComponent courseId={courseId} testIdPrefix={testId} />
@@ -302,15 +311,6 @@ export default function InstructorCourseShowPage({
             <DokkuTabComponent courseId={courseId} testIdPrefix={testId} />
           </Tab>
         )}
-        <Tab
-          eventKey={"emails"}
-          title={"Emails"}
-          className="pt-2"
-          mountOnEnter={true}
-          unmountOnExit={true}
-        >
-          <EmailsTabComponent courseId={courseId} testIdPrefix={testId} />
-        </Tab>
         {showSlackTab && (
           <Tab
             eventKey={"slack"}
