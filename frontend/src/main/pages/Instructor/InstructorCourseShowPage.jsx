@@ -270,7 +270,6 @@ export default function InstructorCourseShowPage({
           eventKey={"emails"}
           title={"Emails"}
           className="pt-2"
-          mountOnEnter={true}
           unmountOnExit={true}
         >
           <EmailsTabComponent courseId={courseId} testIdPrefix={testId} />
