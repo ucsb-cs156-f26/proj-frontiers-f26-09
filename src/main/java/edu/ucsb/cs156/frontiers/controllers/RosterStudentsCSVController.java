@@ -14,6 +14,7 @@ import edu.ucsb.cs156.frontiers.models.UpsertResponse;
 import edu.ucsb.cs156.frontiers.repositories.CourseRepository;
 import edu.ucsb.cs156.frontiers.repositories.RosterStudentRepository;
 import edu.ucsb.cs156.frontiers.services.OrganizationMemberService;
+import edu.ucsb.cs156.frontiers.services.StudentDropService;
 import edu.ucsb.cs156.frontiers.services.UpdateUserService;
 import edu.ucsb.cs156.jobs.services.JobService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -52,6 +53,7 @@ public class RosterStudentsCSVController extends ApiController {
 
   @Autowired private UpdateUserService updateUserService;
   @Autowired private OrganizationMemberService organizationMemberService;
+  @Autowired private StudentDropService studentDropService;
   @Autowired private JobService jobService;
 
   public enum RosterSourceType {
@@ -174,6 +176,7 @@ public class RosterStudentsCSVController extends ApiController {
               List.of());
       rosterStudentRepository.saveAll(course.getRosterStudents());
       updateUserService.attachUsersToRosterStudents(course.getRosterStudents());
+      studentDropService.handleDroppedStudents(droppedStudents);
       RemoveStudentsJob job =
           RemoveStudentsJob.builder()
               .students(droppedStudents)
