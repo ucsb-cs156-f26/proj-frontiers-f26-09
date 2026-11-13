@@ -19,6 +19,7 @@ import edu.ucsb.cs156.frontiers.repositories.TeamMemberRepository;
 import edu.ucsb.cs156.frontiers.repositories.TeamRepository;
 import edu.ucsb.cs156.frontiers.services.CanvasService;
 import edu.ucsb.cs156.frontiers.services.OrganizationMemberService;
+import edu.ucsb.cs156.frontiers.services.StudentDropService;
 import edu.ucsb.cs156.frontiers.services.UpdateUserService;
 import edu.ucsb.cs156.jobs.entities.Job;
 import edu.ucsb.cs156.jobs.services.JobService;
@@ -51,6 +52,7 @@ public class CanvasController extends ApiController {
   private final UpdateUserService updateUserService;
   private final OrganizationMemberService organizationMemberService;
   private final TeamMemberRepository teamMemberRepository;
+  private final StudentDropService studentDropService;
 
   public CanvasController(
       CourseRepository courseRepository,
@@ -60,7 +62,8 @@ public class CanvasController extends ApiController {
       RosterStudentRepository rosterStudentRepository,
       UpdateUserService updateUserService,
       OrganizationMemberService organizationMemberService,
-      TeamMemberRepository teamMemberRepository) {
+      TeamMemberRepository teamMemberRepository,
+      StudentDropService studentDropService) {
     this.courseRepository = courseRepository;
     this.canvasService = canvasService;
     this.teamRepository = teamRepository;
@@ -69,6 +72,7 @@ public class CanvasController extends ApiController {
     this.updateUserService = updateUserService;
     this.organizationMemberService = organizationMemberService;
     this.teamMemberRepository = teamMemberRepository;
+    this.studentDropService = studentDropService;
   }
 
   /**
@@ -123,6 +127,7 @@ public class CanvasController extends ApiController {
               List.of());
       rosterStudentRepository.saveAll(course.getRosterStudents());
       updateUserService.attachUsersToRosterStudents(course.getRosterStudents());
+      studentDropService.handleDroppedStudents(droppedStudents);
       RemoveStudentsJob job =
           RemoveStudentsJob.builder()
               .students(droppedStudents)
