@@ -31,6 +31,7 @@ import edu.ucsb.cs156.frontiers.repositories.TeamMemberRepository;
 import edu.ucsb.cs156.frontiers.repositories.TeamRepository;
 import edu.ucsb.cs156.frontiers.services.CanvasService;
 import edu.ucsb.cs156.frontiers.services.OrganizationMemberService;
+import edu.ucsb.cs156.frontiers.services.StudentDropService;
 import edu.ucsb.cs156.frontiers.services.UpdateUserService;
 import edu.ucsb.cs156.jobs.entities.Job;
 import edu.ucsb.cs156.jobs.services.JobService;
@@ -63,6 +64,8 @@ public class CanvasControllerTests extends ControllerTestCase {
   @MockitoBean private TeamMemberRepository teamMemberRepository;
 
   @MockitoBean private OrganizationMemberService organizationMemberService;
+
+  @MockitoBean private StudentDropService studentDropService;
 
   @Test
   @WithInstructorCoursePermissions
@@ -224,6 +227,7 @@ public class CanvasControllerTests extends ControllerTestCase {
 
     // Assert
     verify(rosterStudentRepository, never()).saveAll(any());
+    verify(studentDropService, never()).handleDroppedStudents(any());
 
     String responseString = response.getResponse().getContentAsString();
     RosterStudent rejectedStudent =
@@ -291,6 +295,7 @@ public class CanvasControllerTests extends ControllerTestCase {
     verify(rosterStudentRepository).saveAll(any(List.class));
     verify(service).runAsJob(any(RemoveStudentsJob.class));
     assertEquals(RosterStatus.DROPPED, existingStudent.getRosterStatus());
+    verify(studentDropService).handleDroppedStudents(List.of(existingStudent));
 
     String responseString = response.getResponse().getContentAsString();
     LoadResult expectedResult = new LoadResult(1, 0, 1, List.of());
