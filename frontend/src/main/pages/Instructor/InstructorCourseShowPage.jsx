@@ -24,6 +24,7 @@ import SlackTabComponent from "main/components/TabComponent/SlackTabComponent";
 import DokkuTabComponent from "main/components/TabComponent/DokkuTabComponent";
 import ApiKeysTabComponent from "main/components/TabComponent/ApiKeysTabComponent";
 import EduDoraTabComponent from "main/components/TabComponent/EduDoraTabComponent";
+import CATMETabComponent from "main/components/TabComponent/CATMETabComponent";
 import { slackInfoQueryKey } from "main/utils/slackUtils";
 import {
   COURSE_TABS,
