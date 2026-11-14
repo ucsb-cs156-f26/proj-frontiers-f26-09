@@ -82,4 +82,61 @@ describe("DownloadsTabComponent tests", () => {
     );
     consoleSpy.mockRestore();
   });
+
+  test("Formatted teams CSV section renders correctly", async () => {
+    const client = new QueryClient();
+    render(
+      <QueryClientProvider client={client}>
+        <DownloadsTabComponent
+          courseId={7}
+          testIdPrefix="InstructorCourseShowPage"
+        />
+      </QueryClientProvider>,
+    );
+
+    const header = await screen.findByTestId(
+      "InstructorCourseShowPage-downloads-teams-header",
+    );
+    expect(header).toHaveTextContent("Teams");
+    expect(header).toHaveClass("mt-4");
+    expect(
+      screen.getByTestId(
+        "InstructorCourseShowPage-downloads-teams-description",
+      ),
+    ).toHaveTextContent(
+      "Every student's name and team, listed first by name and then by team, in side-by-side columns. Imported into Google Sheets, it only needs some formatting and splitting into two tabs to become a team sheet.",
+    );
+    const button = screen.getByTestId(
+      "InstructorCourseShowPage-btn-download-formatted-teams-csv",
+    );
+    expect(button).toHaveTextContent("Download Formatted Teams CSV");
+    expect(button).toHaveClass("btn-primary");
+  });
+
+  test("Formatted teams CSV button opens the download for this course", async () => {
+    const openSpy = vi.spyOn(window, "open").mockImplementation(() => null);
+    const client = new QueryClient();
+    render(
+      <QueryClientProvider client={client}>
+        <DownloadsTabComponent
+          courseId={7}
+          testIdPrefix="InstructorCourseShowPage"
+        />
+      </QueryClientProvider>,
+    );
+
+    fireEvent.click(
+      await screen.findByTestId(
+        "InstructorCourseShowPage-btn-download-formatted-teams-csv",
+      ),
+    );
+
+    expect(openSpy).toHaveBeenCalledTimes(1);
+    expect(openSpy).toHaveBeenCalledWith(
+      "/api/csv/formattedteams?courseId=7",
+      "_blank",
+    );
+    expect(mockToast).not.toHaveBeenCalled();
+    openSpy.mockRestore();
+  });
 });
