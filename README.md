@@ -4,8 +4,8 @@
 
 Note: CMPSC 156 Student teams should not change the prod/qa links below to match their team's links; you should maintain the README.md file so that it can be merged into the https://github.com/ucsb-cs156/proj-frontiers/ repo at the end of the quarter.
 
-* Prod: <https://frontiers.dokku-00.cs.ucsb.edu>
-* QA: <https://frontiers-qa.dokku-00.cs.ucsb.edu>
+* Prod: <https://frontiers.dokku-09.cs.ucsb.edu>
+* QA: <https://frontiers-qa.dokku-09.cs.ucsb.edu>
 
 ### Product Planning Doc: 
 - <https://docs.google.com/document/d/1IXxmD4hBvDq6uSnpSukdV30o4xyaIAgiRt_Mpqv51yw/edit?usp=sharing>
@@ -21,7 +21,7 @@ This web application supports courses that use Github organizations
 as a basis for instruction in coding and software engineering.
 
 Three levels of functionalilty are planned:
-
+  
 Tier 1: Basic features to automate the process of generating invitations to a Github Organization for all students on a course roster, and linking those students Github and student identities (i.e. linking their Github login to their official school email or student number).
 
 Tier 2: Features to support common course management tasks such as creating assignment repos for individuals or groups, managing teams on Github, creating team level repos.

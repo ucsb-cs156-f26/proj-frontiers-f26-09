@@ -82,6 +82,34 @@ describe("CourseEmailsCard tests", () => {
     expect(emailsGetHistory()[0].params).not.toHaveProperty("team");
   });
 
+  test("asks for the emails of the given team, and refetches when the team changes", async () => {
+    const queryClient = new QueryClient();
+    const card = (team) => (
+      <QueryClientProvider client={queryClient}>
+        <CourseEmailsCard courseId={7} type="STUDENTS" team={team} />
+      </QueryClientProvider>
+    );
+    const { rerender } = render(card("team-alpha"));
+
+    await waitFor(() => expect(emailsGetHistory().length).toBe(1));
+    expect(emailsGetHistory()[0].params).toEqual({
+      courseId: 7,
+      type: "STUDENTS",
+      format: "ONE_PER_LINE",
+      team: "team-alpha",
+    });
+
+    rerender(card("team-beta"));
+
+    await waitFor(() => expect(emailsGetHistory().length).toBe(2));
+    expect(emailsGetHistory()[1].params).toEqual({
+      courseId: 7,
+      type: "STUDENTS",
+      format: "ONE_PER_LINE",
+      team: "team-beta",
+    });
+  });
+
   test("shows the emails in a read only, monospace, white on black text area", async () => {
     renderCard();
 

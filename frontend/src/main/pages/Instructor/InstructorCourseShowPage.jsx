@@ -13,6 +13,7 @@ import EnrollmentTabComponent from "main/components/TabComponent/EnrollmentTabCo
 import StaffTabComponent from "main/components/TabComponent/StaffTabComponent";
 import GithubSettingIcon from "main/components/Common/GithubSettingIcon";
 import TeamsTabComponent from "main/components/TabComponent/TeamsTabComponent";
+import EmailsTabComponent from "main/components/TabComponent/EmailsTabComponent";
 import { CourseWarningBanner } from "main/components/Courses/CourseWarningBanner";
 import SettingsTabComponent from "main/components/TabComponent/SettingsTabComponent";
 import JobTabComponent from "main/components/TabComponent/JobTabComponent";
@@ -264,6 +265,14 @@ export default function InstructorCourseShowPage({
             currentUser={currentUser}
             canManageTeams={canManageTeams}
           />
+        </Tab>
+        <Tab
+          eventKey={"emails"}
+          title={"Emails"}
+          className="pt-2"
+          unmountOnExit={true}
+        >
+          <EmailsTabComponent courseId={courseId} testIdPrefix={testId} />
         </Tab>
         {showSectionsTab && (
           <Tab eventKey={"sections"} title={"Sections"} className="pt-2">

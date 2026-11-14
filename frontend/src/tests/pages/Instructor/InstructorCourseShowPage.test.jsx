@@ -1116,6 +1116,7 @@ describe("InstructorCourseShowPage tests", () => {
         "Students",
         "Staff",
         "Teams",
+        "Emails",
         "Assignments",
         "New Assignments",
         "Jobs",
@@ -1263,6 +1264,7 @@ describe("InstructorCourseShowPage tests", () => {
         "Students",
         "Staff",
         "Teams",
+        "Emails",
         "Assignments",
         "Jobs",
         "Downloads",
@@ -1378,6 +1380,7 @@ describe("InstructorCourseShowPage tests", () => {
         "Students",
         "Staff",
         "Teams",
+        "Emails",
         "Assignments",
         "Jobs",
         "Downloads",
@@ -1489,6 +1492,7 @@ describe("InstructorCourseShowPage tests", () => {
         "Students",
         "Staff",
         "Teams",
+        "Emails",
         "Assignments",
         "Jobs",
         "Downloads",
@@ -1543,6 +1547,48 @@ describe("InstructorCourseShowPage tests", () => {
         screen.queryByRole("tab", { name: "EduDora" }),
       ).not.toBeInTheDocument();
     });
+  });
+
+  test("the Emails tab loads the emails only when it is opened, and is removed when another tab is opened", async () => {
+    setupInstructorUser();
+    axiosMock.onGet("/api/courses/7").reply(200, {
+      ...coursesFixtures.severalCourses[0],
+      id: 7,
+    });
+    axiosMock.onGet("/api/course/options").reply(200, {});
+    axiosMock.onGet("/api/teams/all?courseId=7").reply(200, []);
+    axiosMock.onGet("/api/courses/emails").reply(200, "a@ucsb.edu");
+    const studentEmailsRequests = () =>
+      axiosMock.history.get.filter(
+        (request) =>
+          request.url === "/api/courses/emails" &&
+          request.params.type === "STUDENTS",
+      );
+
+    renderCourse7();
+
+    const emailsTab = await screen.findByRole("tab", { name: "Emails" });
+    expect(
+      screen.queryByTestId("InstructorCourseShowPage-emails-tab-component"),
+    ).not.toBeInTheDocument();
+    expect(studentEmailsRequests().length).toBe(0);
+
+    fireEvent.click(emailsTab);
+    expect(emailsTab).toHaveAttribute("aria-selected", "true");
+
+    const tab = await screen.findByTestId(
+      "InstructorCourseShowPage-emails-tab-component",
+    );
+    expect(tab.parentElement).toHaveClass("pt-2");
+    await waitFor(() => expect(studentEmailsRequests().length).toBe(1));
+
+    fireEvent.click(screen.getByRole("tab", { name: "Jobs" }));
+
+    await waitFor(() =>
+      expect(
+        screen.queryByTestId("InstructorCourseShowPage-emails-tab-component"),
+      ).not.toBeInTheDocument(),
+    );
   });
 
   test("shows the Slack tab when SLACK_INTEGRATION is enabled and a token is set; loads Slack data only when the tab is opened", async () => {
@@ -1926,6 +1972,7 @@ describe("InstructorCourseShowPage tests", () => {
       ["students", "Students"],
       ["staff", "Staff"],
       ["teams", "Teams"],
+      ["emails", "Emails"],
       ["sections", "Sections"],
       ["assignments", "Assignments"],
       ["new-assignments", "New Assignments"],
