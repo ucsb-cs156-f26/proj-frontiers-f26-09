@@ -374,7 +374,9 @@ public class RepositoryService {
     while (endpoint != null) {
       ResponseEntity<String> response =
           restTemplate.exchange(endpoint, HttpMethod.GET, entity, String.class);
-      for (JsonNode repo : mapper.readTree(response.getBody())) {
+
+      JsonNode repos = mapper.readTree(response.getBody());
+      for (JsonNode repo : repos) {
         String name = repo.path("name").asText();
         if (name.startsWith(prefix)) {
           matchingRepos.add(new GithubRepository(name, repo.path("full_name").asText()));

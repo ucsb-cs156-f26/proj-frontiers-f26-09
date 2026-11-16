@@ -1223,6 +1223,31 @@ public class RepositoryServiceTests {
     mockRestServiceServer.verify();
   }
 
+  @Test
+  public void deleteRepositoryIfEmpty_error_message_includes_githubs_own_message() {
+    mockRestServiceServer
+        .expect(
+            requestTo("https://api.github.com/repos/ucsb-cs156/lab01-student1/commits?per_page=1"))
+        .andExpect(method(HttpMethod.GET))
+        .andRespond(withSuccess("[]", MediaType.APPLICATION_JSON));
+    mockRestServiceServer
+        .expect(requestTo("https://api.github.com/repos/ucsb-cs156/lab01-student1"))
+        .andExpect(method(HttpMethod.DELETE))
+        .andRespond(
+            withStatus(HttpStatus.FORBIDDEN)
+                .contentType(MediaType.APPLICATION_JSON)
+                .body("{\"message\":\"Must have admin rights to Repository.\"}"));
+
+    HttpClientErrorException e =
+        assertThrows(
+            HttpClientErrorException.class,
+            () -> repositoryService.deleteRepositoryIfEmpty(course, "lab01-student1"));
+
+    // DeleteRepoJob logs e.getMessage() for a failed repo, so it must carry GitHub's explanation.
+    assertTrue(e.getMessage().contains("Must have admin rights to Repository."), e.getMessage());
+    mockRestServiceServer.verify();
+  }
+
   // ---- setSignedCommitsRequired ----
 
   private static final String RULESETS_URL =
