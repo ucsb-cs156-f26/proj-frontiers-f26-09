@@ -123,7 +123,9 @@ export default function EnrollmentTabComponent({
         );
       },
     },
-    [`/api/rosterstudents/course/${courseId}`],
+    [`/api/rosterstudents/course/${courseId}`,
+      `/api/teams/all?courseId=${courseId}`,
+    ],
   );
 
   const handleCanvasSync = () => {
@@ -146,7 +148,9 @@ export default function EnrollmentTabComponent({
         }
       },
     },
-    [`/api/rosterstudents/course/${courseId}`],
+    [`/api/rosterstudents/course/${courseId}`,
+      `/api/teams/all?courseId=${courseId}`,
+    ],
   );
 
   const objectToAxiosParamsPurge = (formData) => ({
@@ -171,7 +175,9 @@ export default function EnrollmentTabComponent({
         setPurgeModal(false);
       },
     },
-    [`/api/rosterstudents/course/${courseId}`],
+    [`/api/rosterstudents/course/${courseId}`,
+      `/api/teams/all?courseId=${courseId}`,
+    ],
   );
 
   const handlePurgeSubmit = (formData) => {

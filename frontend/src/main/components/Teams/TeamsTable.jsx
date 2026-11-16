@@ -127,13 +127,19 @@ export default function TeamsTable({
   const deleteTeamMutation = useBackendMutation(
     cellToAxiosParamDeleteTeam,
     { onSuccess: onDeleteTeam },
-    [`/api/teams/all?courseId=${courseId}`],
+    [
+      `/api/teams/all?courseId=${courseId}`,
+      `/api/rosterstudents/course/${courseId}`,
+    ],
   );
 
   const deleteMemberMutation = useBackendMutation(
     cellToAxiosParamDeleteMember,
     { onSuccess: onDeleteMember },
-    [`/api/teams/all?courseId=${courseId}`],
+    [
+      `/api/teams/all?courseId=${courseId}`,
+      `/api/rosterstudents/course/${courseId}`,
+    ],
   );
 
   const deleteGithubTeamMutation = useBackendMutation(
@@ -181,7 +187,10 @@ export default function TeamsTable({
         }
       },
     },
-    [`/api/teams/all?courseId=${courseId}`],
+    [
+      `/api/teams/all?courseId=${courseId}`,
+      `/api/rosterstudents/course/${courseId}`,
+    ],
   );
 
   const handlePostSubmit = (data) => {
