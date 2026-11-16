@@ -126,7 +126,7 @@ describe("ProfilePage tests", () => {
       screen.getByText("Please only do so if you know what you're doing."),
     ).toBeInTheDocument();
 
-        expect(
+    expect(
       screen.getByText(
         /Any course invitations you have not yet accepted will be reset/,
       ),
@@ -148,7 +148,7 @@ describe("ProfilePage tests", () => {
     );
     expect(axiosMock.history.delete.length).toBe(1);
 
-        await waitFor(() =>
+    await waitFor(() =>
       expect(invalidateSpy).toHaveBeenCalledWith({
         queryKey: ["/api/courses/list"],
       }),
@@ -160,7 +160,7 @@ describe("ProfilePage tests", () => {
       queryKey: ["current user"],
     });
     invalidateSpy.mockRestore();
-    
+
     expect(axiosMock.history.delete[0].url).toBe("/api/github/disconnect");
     expect(mockToast).toBeCalledWith(
       "Disconnected from GitHub. You may now log in with a different account.",
