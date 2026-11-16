@@ -18,6 +18,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.web.client.RestTemplateBuilder;
 import org.springframework.http.*;
@@ -337,8 +339,30 @@ public class RepositoryService {
   }
 
   /**
+   * Matches the URL of the next page in a GitHub {@code Link} response header. See <a
+   * href="https://docs.github.com/en/rest/using-the-rest-api/using-pagination-in-the-rest-api">
+   * Using pagination in the REST API</a>.
+   */
+  private static final Pattern NEXT_PAGE_PATTERN =
+      Pattern.compile("(?<=<)([\\S]*)(?=>; rel=\"next\")");
+
+  /**
+   * Returns the URL of the next page of a paginated GitHub response, or null if this is the last
+   * page.
+   */
+  private static String nextPageUrl(HttpHeaders headers) {
+    String link = headers.getFirst(HttpHeaders.LINK);
+    if (link == null) {
+      return null;
+    }
+    Matcher matcher = NEXT_PAGE_PATTERN.matcher(link);
+    return matcher.find() ? matcher.group(1) : null;
+  }
+
+  /**
    * Lists repositories in the course GitHub organization whose names start with the provided
-   * prefix.
+   * prefix. Every page of the organization's repositories is read, so that no matching repository
+   * is missed in an organization with more than one page of them.
    */
   public List<GithubRepository> getRepositoriesMatchingPrefix(Course course, String prefix)
       throws NoSuchAlgorithmException, InvalidKeySpecException, JsonProcessingException {
@@ -346,16 +370,17 @@ public class RepositoryService {
     String endpoint = "https://api.github.com/orgs/" + course.getOrgName() + "/repos?per_page=100";
 
     HttpEntity<String> entity = new HttpEntity<>(githubHeaders(token));
-    ResponseEntity<String> response =
-        restTemplate.exchange(endpoint, HttpMethod.GET, entity, String.class);
-
-    JsonNode repos = mapper.readTree(response.getBody());
     List<GithubRepository> matchingRepos = new ArrayList<>();
-    for (JsonNode repo : repos) {
-      String name = repo.path("name").asText();
-      if (name.startsWith(prefix)) {
-        matchingRepos.add(new GithubRepository(name, repo.path("full_name").asText()));
+    while (endpoint != null) {
+      ResponseEntity<String> response =
+          restTemplate.exchange(endpoint, HttpMethod.GET, entity, String.class);
+      for (JsonNode repo : mapper.readTree(response.getBody())) {
+        String name = repo.path("name").asText();
+        if (name.startsWith(prefix)) {
+          matchingRepos.add(new GithubRepository(name, repo.path("full_name").asText()));
+        }
       }
+      endpoint = nextPageUrl(response.getHeaders());
     }
     return matchingRepos;
   }

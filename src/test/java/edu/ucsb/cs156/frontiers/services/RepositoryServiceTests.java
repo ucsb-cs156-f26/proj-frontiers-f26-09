@@ -34,6 +34,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.client.RestClientTest;
 import org.springframework.context.annotation.Import;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -985,6 +986,83 @@ public class RepositoryServiceTests {
     assertThrows(
         HttpClientErrorException.class,
         () -> repositoryService.getRepositoriesMatchingPrefix(course, "lab01"));
+    mockRestServiceServer.verify();
+  }
+
+  @Test
+  public void getRepositoriesMatchingPrefix_follows_next_links_through_every_page()
+      throws Exception {
+    // GitHub's Link header for a middle page names prev, next, last, and first pages.
+    HttpHeaders firstPageHeaders = new HttpHeaders();
+    firstPageHeaders.add(
+        "Link",
+        "<https://api.github.com/organizations/42/repos?per_page=100&page=2>; rel=\"next\", "
+            + "<https://api.github.com/organizations/42/repos?per_page=100&page=3>; rel=\"last\"");
+    HttpHeaders secondPageHeaders = new HttpHeaders();
+    secondPageHeaders.add(
+        "Link",
+        "<https://api.github.com/organizations/42/repos?per_page=100&page=1>; rel=\"prev\", "
+            + "<https://api.github.com/organizations/42/repos?per_page=100&page=3>; rel=\"next\", "
+            + "<https://api.github.com/organizations/42/repos?per_page=100&page=3>; rel=\"last\", "
+            + "<https://api.github.com/organizations/42/repos?per_page=100&page=1>; rel=\"first\"");
+    // The last page still has a Link header, but with no rel="next".
+    HttpHeaders lastPageHeaders = new HttpHeaders();
+    lastPageHeaders.add(
+        "Link",
+        "<https://api.github.com/organizations/42/repos?per_page=100&page=2>; rel=\"prev\", "
+            + "<https://api.github.com/organizations/42/repos?per_page=100&page=1>; rel=\"first\"");
+
+    mockRestServiceServer
+        .expect(requestTo("https://api.github.com/orgs/ucsb-cs156/repos?per_page=100"))
+        .andExpect(header("Authorization", "Bearer real.installation.token"))
+        .andExpect(method(HttpMethod.GET))
+        .andRespond(
+            withSuccess(
+                    """
+                    [
+                      {"name": "lab01-student1", "full_name": "ucsb-cs156/lab01-student1"},
+                      {"name": "other-student1", "full_name": "ucsb-cs156/other-student1"}
+                    ]
+                    """,
+                    MediaType.APPLICATION_JSON)
+                .headers(firstPageHeaders));
+    mockRestServiceServer
+        .expect(requestTo("https://api.github.com/organizations/42/repos?per_page=100&page=2"))
+        .andExpect(header("Authorization", "Bearer real.installation.token"))
+        .andExpect(header("Accept", "application/vnd.github+json"))
+        .andExpect(header("X-GitHub-Api-Version", "2022-11-28"))
+        .andExpect(method(HttpMethod.GET))
+        .andRespond(
+            withSuccess(
+                    """
+                    [
+                      {"name": "other-student2", "full_name": "ucsb-cs156/other-student2"}
+                    ]
+                    """,
+                    MediaType.APPLICATION_JSON)
+                .headers(secondPageHeaders));
+    mockRestServiceServer
+        .expect(requestTo("https://api.github.com/organizations/42/repos?per_page=100&page=3"))
+        .andExpect(header("Authorization", "Bearer real.installation.token"))
+        .andExpect(method(HttpMethod.GET))
+        .andRespond(
+            withSuccess(
+                    """
+                    [
+                      {"name": "lab01-student2", "full_name": "ucsb-cs156/lab01-student2"}
+                    ]
+                    """,
+                    MediaType.APPLICATION_JSON)
+                .headers(lastPageHeaders));
+
+    List<RepositoryService.GithubRepository> repos =
+        repositoryService.getRepositoriesMatchingPrefix(course, "lab01");
+
+    assertEquals(
+        List.of(
+            new RepositoryService.GithubRepository("lab01-student1", "ucsb-cs156/lab01-student1"),
+            new RepositoryService.GithubRepository("lab01-student2", "ucsb-cs156/lab01-student2")),
+        repos);
     mockRestServiceServer.verify();
   }
 
