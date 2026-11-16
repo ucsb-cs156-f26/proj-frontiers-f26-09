@@ -355,6 +355,8 @@ describe("RosterStudentTable tests", () => {
     expect(pageSizeSelect).toHaveValue("100");
     expect(pageSizeSelect).toHaveAttribute("id", `${testId}-pageSizeSelect`);
     expect(pageSizeSelect).toHaveStyle({ width: "auto" });
+    // jsdom also reports "auto" when no width is set, so check the inline style too
+    expect(pageSizeSelect.style.width).toBe("auto");
     expect(screen.getByLabelText("Page Size:")).toBe(pageSizeSelect);
     expect(
       screen.queryByTestId(`${testId}-pagination-prev`),
@@ -449,6 +451,44 @@ describe("RosterStudentTable tests", () => {
     expect(
       screen.queryByTestId(`${testId}-pagination-prev`),
     ).not.toBeInTheDocument();
+  });
+
+  test("changing the page size goes back to the first page", () => {
+    const currentUser = currentUserFixtures.adminUser;
+    const manyStudents = Array.from({ length: 60 }, (_, index) => ({
+      id: index + 1,
+      studentId: `S${index + 1}`,
+      firstName: `First${index + 1}`,
+      lastName: `Last${index + 1}`,
+      email: `student${index + 1}@ucsb.edu`,
+    }));
+
+    render(
+      <QueryClientProvider client={queryClient}>
+        <MemoryRouter>
+          <RosterStudentTable
+            students={manyStudents}
+            currentUser={currentUser}
+          />
+        </MemoryRouter>
+      </QueryClientProvider>,
+    );
+
+    const pageSizeSelect = screen.getByTestId(`${testId}-pageSizeSelect`);
+    fireEvent.change(pageSizeSelect, { target: { value: "10" } });
+    fireEvent.click(screen.getByTestId(`${testId}-pagination-3`));
+    expect(
+      screen.getByTestId(`${testId}-cell-row-0-col-studentId`),
+    ).toHaveTextContent("S21");
+
+    // With 25 per page there is still a page 3, so only the reset brings us back to page 1
+    fireEvent.change(pageSizeSelect, { target: { value: "25" } });
+    expect(
+      screen.getByTestId(`${testId}-cell-row-0-col-studentId`),
+    ).toHaveTextContent("S1");
+    expect(
+      screen.getByTestId(`${testId}-cell-row-0-col-studentId`),
+    ).not.toHaveTextContent("S51");
   });
 
   test("resets to the last valid page if the student list shrinks below the current page", () => {
@@ -548,6 +588,8 @@ describe("RosterStudentTable tests", () => {
         screen.getByTestId(`${testId}-cell-row-0-col-section`),
       ).toHaveTextContent("0100"),
     );
+    // give a sections request time to finish, so a translation would have shown up by now
+    await new Promise((resolve) => setTimeout(resolve, 100));
     expect(
       screen.getByTestId(`${testId}-cell-row-0-col-section`),
     ).not.toHaveTextContent("Tue 9:00am");

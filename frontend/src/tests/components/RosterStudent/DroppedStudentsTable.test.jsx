@@ -231,6 +231,36 @@ describe("DroppedStudentsTable tests", () => {
     ).not.toHaveTextContent("Tue 9:00am");
   });
 
+  test("defaults translateSections to false when the prop is not provided", async () => {
+    const queryClientSpecific = new QueryClient();
+    axiosMock
+      .onGet("/api/courses/7/sections")
+      .reply(200, sectionsFixtures.threeSections);
+
+    render(
+      <QueryClientProvider client={queryClientSpecific}>
+        <DroppedStudentsTable
+          students={rosterStudentFixtures.threeStudents}
+          courseId={7}
+        />
+      </QueryClientProvider>,
+    );
+
+    await waitFor(() =>
+      expect(
+        screen.getByTestId("DroppedStudentsTable-cell-row-0-col-section"),
+      ).toHaveTextContent("0100"),
+    );
+    // give a sections request time to finish, so a translation would have shown up by now
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    expect(
+      screen.getByTestId("DroppedStudentsTable-cell-row-0-col-section"),
+    ).toHaveTextContent("0100");
+    expect(
+      screen.getByTestId("DroppedStudentsTable-cell-row-0-col-section"),
+    ).not.toHaveTextContent("Tue 9:00am");
+  });
+
   test("shows the translated section label when translateSections is enabled", async () => {
     axiosMock
       .onGet("/api/courses/7/sections")
