@@ -28,6 +28,7 @@ import edu.ucsb.cs156.frontiers.repositories.CourseRepository;
 import edu.ucsb.cs156.frontiers.repositories.RosterStudentRepository;
 import edu.ucsb.cs156.frontiers.services.CurrentUserService;
 import edu.ucsb.cs156.frontiers.services.OrganizationMemberService;
+import edu.ucsb.cs156.frontiers.services.StudentDropService;
 import edu.ucsb.cs156.frontiers.services.UpdateUserService;
 import edu.ucsb.cs156.jobs.services.JobService;
 import java.util.ArrayList;
@@ -59,6 +60,8 @@ public class RosterStudentsCSVControllerTests extends ControllerTestCase {
   @MockitoBean private UpdateUserService updateUserService;
 
   @MockitoBean private OrganizationMemberService organizationMemberService;
+
+  @MockitoBean private StudentDropService studentDropService;
 
   @MockitoBean private JobService service;
 
@@ -292,6 +295,7 @@ public class RosterStudentsCSVControllerTests extends ControllerTestCase {
             .build();
 
     verify(rosterStudentRepository, never()).saveAll(List.of());
+    verify(studentDropService, never()).handleDroppedStudents(any());
     String responseString = response.getResponse().getContentAsString();
     LoadResult expectedResult = new LoadResult(0, 0, 0, List.of(rosterStudentRejected));
     String expectedJson = mapper.writeValueAsString(expectedResult);
@@ -352,6 +356,7 @@ public class RosterStudentsCSVControllerTests extends ControllerTestCase {
             .andReturn();
 
     verify(rosterStudentRepository, times(1)).saveAll(rosterStudentCaptor.capture());
+    verify(studentDropService, times(1)).handleDroppedStudents(List.of(droppedStudentUpdated));
     verify(jobService, times(1)).runAsJob(any(RemoveStudentsJob.class));
 
     System.out.println("rosterStudentCaptor.getValue() = " + rosterStudentCaptor.getValue());
