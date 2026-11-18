@@ -12,6 +12,7 @@ import { rosterStudentFixtures } from "fixtures/rosterStudentFixtures";
 import { courseStaffFixtures } from "fixtures/courseStaffFixtures";
 import { teamsFixtures } from "fixtures/TeamsFixtures";
 import { newAssignmentsFixtures } from "fixtures/newAssignmentsFixtures";
+import { sectionsFixtures } from "fixtures/sectionsFixtures";
 import { expect, vi } from "vitest";
 
 const mockedNavigate = vi.fn();
@@ -271,14 +272,62 @@ describe("StaffCourseShowPage tests", () => {
       expect(
         screen.queryByRole("tab", { name: "API Keys" }),
       ).not.toBeInTheDocument();
-      // and nothing that those tabs load is asked for
+      // and nothing that those tabs load is asked for (the section labels are
+      // loaded, though, because the student list shows them; see below)
       expect(
         axiosMock.history.get.some(
           (request) =>
             request.url.startsWith("/api/courses/slack") ||
             request.url === "/api/dokku/translations" ||
-            request.url === "/api/courses/key" ||
-            request.url === "/api/courses/7/sections",
+            request.url === "/api/courses/key",
+        ),
+      ).toBe(false);
+    });
+
+    const sectionCells = () =>
+      screen
+        .queryAllByTestId(
+          /^StaffCourseShowPage-RosterStudentTable-cell-row-\d+-col-section$/,
+        )
+        .map((cell) => cell.textContent);
+
+    test("staff see the section labels in the student list when TRANSLATE_SECTIONS is on", async () => {
+      setupCourse();
+      axiosMock
+        .onGet("/api/courses/7/sections")
+        .reply(200, sectionsFixtures.threeSections);
+
+      renderPage();
+
+      await waitFor(() => {
+        expect(sectionCells()).toEqual(
+          expect.arrayContaining(["Tue 9:00am", "Tue 10:00am"]),
+        );
+      });
+      expect(sectionCells()).not.toContain("0100");
+      // editing the section labels is still left to the instructor
+      expect(
+        screen.queryByRole("tab", { name: "Sections" }),
+      ).not.toBeInTheDocument();
+    });
+
+    test("staff see the raw section values when TRANSLATE_SECTIONS is off", async () => {
+      setupCourse({ ...allOptions, TRANSLATE_SECTIONS: false });
+      axiosMock
+        .onGet("/api/courses/7/sections")
+        .reply(200, sectionsFixtures.threeSections);
+
+      renderPage();
+
+      await screen.findByRole("tab", { name: "New Assignments" });
+      await waitFor(() => {
+        expect(sectionCells()).toEqual(
+          expect.arrayContaining(["0100", "0200"]),
+        );
+      });
+      expect(
+        axiosMock.history.get.some(
+          (request) => request.url === "/api/courses/7/sections",
         ),
       ).toBe(false);
     });

@@ -609,6 +609,57 @@ describe("TeamsTable tests", () => {
       "GitHub Login",
     ];
 
+    // These two tests use their own QueryClient, so that nothing cached by
+    // other tests can stand in for what this component loads.
+    const renderWithStaffTeam = (client) =>
+      render(
+        <QueryClientProvider client={client}>
+          <MemoryRouter>
+            <TeamsTable
+              teams={[teamsFixtures.teams[0], teamsFixtures.staffTeam]}
+              currentUser={currentUserFixtures.instructorUser}
+              courseId="12"
+              testIdPrefix={testId}
+            />
+          </MemoryRouter>
+        </QueryClientProvider>,
+      );
+
+    test("the course staff are cached under the same query key as on the Staff tab", async () => {
+      axiosMock
+        .onGet("/api/coursestaff/course?courseId=12")
+        .reply(200, courseStaffFixtures.staffWithEachStatus);
+      axiosMock.onGet("/api/rosterstudents/course/12").reply(200, []);
+      const client = new QueryClient();
+
+      renderWithStaffTeam(client);
+
+      await waitFor(() =>
+        expect(
+          client.getQueryData(["/api/coursestaff/course?courseId=12"]),
+        ).toEqual(courseStaffFixtures.staffWithEachStatus),
+      );
+    });
+
+    test("a staff team has no members while the course staff cannot be loaded", async () => {
+      axiosMock.onGet("/api/coursestaff/course?courseId=12").reply(500);
+      axiosMock.onGet("/api/rosterstudents/course/12").reply(200, []);
+      const client = new QueryClient({
+        defaultOptions: { queries: { retry: false } },
+      });
+
+      renderWithStaffTeam(client);
+
+      await waitFor(() =>
+        expect(
+          client.getQueryState(["/api/coursestaff/course?courseId=12"]).status,
+        ).toBe("error"),
+      );
+      expect(
+        screen.queryByTestId(`${testId}-7-members-table-cell-row-0-col-id`),
+      ).not.toBeInTheDocument();
+    });
+
     test("a staff team shows the course staff as its members, with no add or remove controls", async () => {
       axiosMock
         .onGet("/api/coursestaff/course?courseId=12")
@@ -794,5 +845,103 @@ describe("TeamsTable tests", () => {
     // the header itself still toggles
     fireEvent.click(header);
     expect(header).toHaveAttribute("aria-expanded", "true");
+  });
+
+  describe("Expand All and Collapse All", () => {
+    const renderTable = (teams, instructorView = true) => (
+      <QueryClientProvider client={queryClient}>
+        <MemoryRouter>
+          <TeamsTable
+            teams={teams}
+            currentUser={currentUserFixtures.instructorUser}
+            courseId="12"
+            testIdPrefix={testId}
+            instructorView={instructorView}
+          />
+        </MemoryRouter>
+      </QueryClientProvider>
+    );
+    const header = (teamId) =>
+      screen.getByTestId(`${testId}-${teamId}-name`).closest("button");
+
+    beforeEach(() => {
+      axiosMock.onGet("/api/rosterstudents/course/12").reply(200, []);
+    });
+
+    test("instructors get Expand All and Collapse All buttons", () => {
+      render(renderTable(teamsFixtures.teams));
+
+      const expandAll = screen.getByTestId(`${testId}-expand-all`);
+      const collapseAll = screen.getByTestId(`${testId}-collapse-all`);
+      expect(expandAll).toHaveTextContent("Expand All");
+      expect(collapseAll).toHaveTextContent("Collapse All");
+      for (const button of [expandAll, collapseAll]) {
+        expect(button).toHaveClass("btn-outline-secondary");
+        expect(button).toHaveClass("btn-sm");
+      }
+      expect(expandAll.parentElement).toHaveClass(
+        "d-flex justify-content-end gap-2 mb-2",
+      );
+    });
+
+    test("teams start closed; Expand All opens them all and Collapse All closes them all", () => {
+      render(renderTable(teamsFixtures.teams));
+
+      expect(header(3)).toHaveAttribute("aria-expanded", "false");
+      expect(header(4)).toHaveAttribute("aria-expanded", "false");
+
+      fireEvent.click(screen.getByTestId(`${testId}-expand-all`));
+      expect(header(3)).toHaveAttribute("aria-expanded", "true");
+      expect(header(4)).toHaveAttribute("aria-expanded", "true");
+
+      fireEvent.click(screen.getByTestId(`${testId}-collapse-all`));
+      expect(header(3)).toHaveAttribute("aria-expanded", "false");
+      expect(header(4)).toHaveAttribute("aria-expanded", "false");
+    });
+
+    test("opening a team leaves the other open teams open", () => {
+      render(renderTable(teamsFixtures.teams));
+
+      fireEvent.click(header(3));
+      expect(header(3)).toHaveAttribute("aria-expanded", "true");
+      expect(header(4)).toHaveAttribute("aria-expanded", "false");
+
+      fireEvent.click(header(4));
+      expect(header(3)).toHaveAttribute("aria-expanded", "true");
+      expect(header(4)).toHaveAttribute("aria-expanded", "true");
+
+      fireEvent.click(header(3));
+      expect(header(3)).toHaveAttribute("aria-expanded", "false");
+      expect(header(4)).toHaveAttribute("aria-expanded", "true");
+    });
+
+    test("an open team stays open when the list of teams shown changes", () => {
+      const [team3, team4] = teamsFixtures.teams;
+      const { rerender } = render(renderTable([team3, team4]));
+
+      fireEvent.click(header(4));
+      expect(header(4)).toHaveAttribute("aria-expanded", "true");
+
+      // e.g. a search that hides team 3, which moves team 4 to the top
+      rerender(renderTable([team4]));
+      expect(header(4)).toHaveAttribute("aria-expanded", "true");
+
+      rerender(renderTable([team3, team4]));
+      expect(header(3)).toHaveAttribute("aria-expanded", "false");
+      expect(header(4)).toHaveAttribute("aria-expanded", "true");
+    });
+
+    test("students get no Expand All or Collapse All buttons, and their teams start open", () => {
+      render(renderTable(teamsFixtures.teams, false));
+
+      expect(
+        screen.queryByTestId(`${testId}-expand-all`),
+      ).not.toBeInTheDocument();
+      expect(
+        screen.queryByTestId(`${testId}-collapse-all`),
+      ).not.toBeInTheDocument();
+      expect(header(3)).toHaveAttribute("aria-expanded", "true");
+      expect(header(4)).toHaveAttribute("aria-expanded", "true");
+    });
   });
 });
