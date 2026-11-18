@@ -33,6 +33,7 @@ import edu.ucsb.cs156.frontiers.repositories.InstructorRepository;
 import edu.ucsb.cs156.frontiers.repositories.RosterStudentRepository;
 import edu.ucsb.cs156.frontiers.repositories.UserRepository;
 import edu.ucsb.cs156.frontiers.services.CanvasApiTokenSecurityService;
+import edu.ucsb.cs156.frontiers.services.CourseStaffService;
 import edu.ucsb.cs156.frontiers.services.CurrentUserService;
 import edu.ucsb.cs156.frontiers.services.OrganizationLinkerService;
 import edu.ucsb.cs156.jobs.repositories.JobsRepository;
@@ -88,6 +89,8 @@ public class CoursesControllerTests extends ControllerTestCase {
 
   @MockitoBean private JobsRepository jobsRepository;
 
+  @MockitoBean private CourseStaffService courseStaffService;
+
   /** Test that ROLE_ADMIN can create a course */
   @Test
   @WithMockUser(roles = {"ADMIN"})
@@ -126,6 +129,7 @@ public class CoursesControllerTests extends ControllerTestCase {
     // assert
 
     verify(courseRepository, times(1)).save(eq(course));
+    verify(courseStaffService, times(1)).ensureInstructorIsStaff(eq(course));
 
     String responseString = response.getResponse().getContentAsString();
     String expectedJson = mapper.writeValueAsString(new InstructorCourseView(course));
@@ -170,6 +174,7 @@ public class CoursesControllerTests extends ControllerTestCase {
     // assert
 
     verify(courseRepository, times(1)).save(eq(course));
+    verify(courseStaffService, times(1)).ensureInstructorIsStaff(eq(course));
 
     String responseString = response.getResponse().getContentAsString();
     String expectedJson = mapper.writeValueAsString(new InstructorCourseView(course));
