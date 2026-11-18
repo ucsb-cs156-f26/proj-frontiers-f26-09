@@ -827,7 +827,7 @@ public class TeamsControllerTests extends ControllerTestCase {
 
     TeamsController.TeamCreationResponse expectedResponse =
         new TeamsController.TeamCreationResponse(
-            TeamsController.TeamSourceType.SIMPLE, 2, 1, List.of("nors@ucsb.edu"));
+            TeamsController.TeamSourceType.SIMPLE, 2, 1, List.of("nors@ucsb.edu"), List.of());
     String expectedJson = mapper.writeValueAsString(expectedResponse);
     String responseString = response.getResponse().getContentAsString();
     assertEquals(expectedJson, responseString);
@@ -896,10 +896,89 @@ public class TeamsControllerTests extends ControllerTestCase {
 
     TeamsController.TeamCreationResponse expectedResponse =
         new TeamsController.TeamCreationResponse(
-            TeamsController.TeamSourceType.SIMPLE, 2, 1, List.of());
+            TeamsController.TeamSourceType.SIMPLE, 2, 1, List.of(), List.of());
     String expectedJson = mapper.writeValueAsString(expectedResponse);
     String responseString = response.getResponse().getContentAsString();
     assertEquals(expectedJson, responseString);
+  }
+
+  /** The example from issue #14: one row has no team. */
+  public static String csvWithRowsMissingATeam =
+      """
+          team,email
+          red,erik@chicostate.edu
+          blue,azure@chicostate.edu
+          ,noteam@chicostate.edu
+          orange,william@chicostate.edu
+            ,blankteam@chicostate.edu
+          """;
+
+  @WithMockUser(roles = {"ADMIN"})
+  @Test
+  public void csv_rows_without_a_team_are_reported_and_the_other_rows_are_added() throws Exception {
+    // arrange
+    Course course = Course.builder().id(1L).courseName("CS156").build();
+    RosterStudent erik =
+        RosterStudent.builder().email("erik@chicostate.edu").course(course).build();
+    RosterStudent azure =
+        RosterStudent.builder().email("azure@chicostate.edu").course(course).build();
+    RosterStudent william =
+        RosterStudent.builder().email("william@chicostate.edu").course(course).build();
+    Team red = Team.builder().id(1L).name("red").course(course).build();
+    Team blue = Team.builder().id(2L).name("blue").course(course).build();
+    Team orangeCreated = Team.builder().name("orange").course(course).build();
+
+    when(courseRepository.findById(eq(1L))).thenReturn(Optional.of(course));
+    when(rosterStudentRepository.findByCourseIdAndEmail(eq(1L), eq("erik@chicostate.edu")))
+        .thenReturn(Optional.of(erik));
+    when(rosterStudentRepository.findByCourseIdAndEmail(eq(1L), eq("azure@chicostate.edu")))
+        .thenReturn(Optional.of(azure));
+    when(rosterStudentRepository.findByCourseIdAndEmail(eq(1L), eq("william@chicostate.edu")))
+        .thenReturn(Optional.of(william));
+    when(teamRepository.findByCourseIdAndName(eq(1L), eq("red"))).thenReturn(Optional.of(red));
+    when(teamRepository.findByCourseIdAndName(eq(1L), eq("blue"))).thenReturn(Optional.of(blue));
+
+    MockMultipartFile file =
+        new MockMultipartFile(
+            "file", "teams.csv", MediaType.TEXT_PLAIN_VALUE, csvWithRowsMissingATeam.getBytes());
+
+    // act
+    MvcResult response =
+        mockMvc
+            .perform(
+                multipart("/api/teams/upload/csv")
+                    .file("file", file.getBytes())
+                    .param("courseId", "1")
+                    .with(csrf()))
+            .andExpect(status().isConflict())
+            .andReturn();
+
+    // assert: the rows with a team are added
+    verify(teamMemberRepository)
+        .save(eq(TeamMember.builder().team(red).rosterStudent(erik).build()));
+    verify(teamMemberRepository)
+        .save(eq(TeamMember.builder().team(blue).rosterStudent(azure).build()));
+    verify(teamRepository).save(eq(orangeCreated));
+    verify(teamMemberRepository)
+        .save(eq(TeamMember.builder().team(orangeCreated).rosterStudent(william).build()));
+    verify(teamMemberRepository, times(3)).save(any(TeamMember.class));
+    // assert: the rows without a team are skipped without looking anything up
+    verify(teamRepository, times(1)).save(any(Team.class));
+    verify(rosterStudentRepository, never())
+        .findByCourseIdAndEmail(eq(1L), eq("noteam@chicostate.edu"));
+    verify(rosterStudentRepository, never())
+        .findByCourseIdAndEmail(eq(1L), eq("blankteam@chicostate.edu"));
+    verify(jobService, times(1)).runAsJob(any(PushTeamsToGithubJob.class));
+
+    TeamsController.TeamCreationResponse expectedResponse =
+        new TeamsController.TeamCreationResponse(
+            TeamsController.TeamSourceType.SIMPLE,
+            3,
+            0,
+            List.of(),
+            List.of("noteam@chicostate.edu", "blankteam@chicostate.edu"));
+    assertEquals(
+        mapper.writeValueAsString(expectedResponse), response.getResponse().getContentAsString());
   }
 
   @Test
@@ -1108,5 +1187,6 @@ public class TeamsControllerTests extends ControllerTestCase {
     assertEquals(0, body.created());
     assertEquals(0, body.existing());
     assertEquals(List.of("s@ucsb.edu"), body.rejected());
+    assertEquals(List.of(), body.missingTeam());
   }
 }
