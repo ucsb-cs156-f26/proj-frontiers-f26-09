@@ -8,6 +8,7 @@ import edu.ucsb.cs156.frontiers.entities.Team;
 import edu.ucsb.cs156.frontiers.entities.TeamMember;
 import edu.ucsb.cs156.frontiers.models.NameAndTeam;
 import java.io.StringWriter;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 import org.junit.jupiter.api.Test;
@@ -426,5 +427,152 @@ public class TeamCsvServiceTests {
     assertThrows(
         IllegalArgumentException.class, () -> service.writeTeamTableCsv(writer, List.of(), 0));
     assertEquals("", writer.toString());
+  }
+
+  // chunkColumns
+
+  @Test
+  public void chunkColumns_rejects_less_than_one_per_column() {
+    IllegalArgumentException e =
+        assertThrows(IllegalArgumentException.class, () -> service.chunkColumns(List.of("a"), 0));
+    assertEquals("perColumn must be at least 1", e.getMessage());
+  }
+
+  @Test
+  public void chunkColumns_fills_each_column_before_starting_the_next() {
+    assertEquals(
+        List.of(List.of("a", "b"), List.of("c", "d"), List.of("e")),
+        service.chunkColumns(List.of("a", "b", "c", "d", "e"), 2));
+  }
+
+  @Test
+  public void chunkColumns_adds_no_empty_column_when_the_items_fill_the_columns_exactly() {
+    assertEquals(
+        List.of(List.of("a", "b"), List.of("c", "d")),
+        service.chunkColumns(List.of("a", "b", "c", "d"), 2));
+  }
+
+  @Test
+  public void chunkColumns_with_one_item_per_column() {
+    assertEquals(List.of(List.of("a"), List.of("b")), service.chunkColumns(List.of("a", "b"), 1));
+  }
+
+  @Test
+  public void chunkColumns_of_no_items_is_one_empty_column() {
+    assertEquals(List.of(List.of()), service.chunkColumns(List.of(), 3));
+  }
+
+  // writeFormattedTeamsCsv
+
+  private String formattedTeamsCsv(
+      List<NameAndTeam> entries, int namesPerColumn, int teamsPerColumn) throws Exception {
+    StringWriter writer = new StringWriter();
+    service.writeFormattedTeamsCsv(writer, entries, namesPerColumn, teamsPerColumn);
+    return writer.toString().replace("\r\n", "\n");
+  }
+
+  private String formattedTeamsCsv(List<NameAndTeam> entries) throws Exception {
+    StringWriter writer = new StringWriter();
+    service.writeFormattedTeamsCsv(writer, entries);
+    return writer.toString().replace("\r\n", "\n");
+  }
+
+  @Test
+  public void the_formatted_teams_csv_has_24_names_and_4_teams_per_column() {
+    assertEquals(24, TeamCsvService.NAMES_PER_COLUMN);
+    assertEquals(4, TeamCsvService.TEAMS_PER_COLUMN);
+  }
+
+  @Test
+  public void writeFormattedTeamsCsv_writes_a_by_name_table_then_a_by_team_table()
+      throws Exception {
+    List<NameAndTeam> entries =
+        List.of(
+            nt("Andy", "s26-01"),
+            nt("Binghao", "s26-01"),
+            nt("Chris", "s26-02"),
+            nt("Dana", "s26-03"),
+            nt("Eve", ""),
+            nt("Finn", "s26-02"),
+            nt("Gus", "s26-04"));
+    // 3 names per column: Andy-Chris, Dana-Finn, Gus.
+    // 2 teams per column: s26-01 and s26-02, s26-03 and s26-04, then the student with no team.
+    String expected =
+        """
+        by name
+        Name,Team,,Name,Team,,Name,Team
+        Andy,s26-01,,Dana,s26-03,,Gus,s26-04
+        Binghao,s26-01,,Eve,,,,
+        Chris,s26-02,,Finn,s26-02,,,
+        by team
+        Team,Name,,Team,Name,,Team,Name
+        s26-01,Andy,,s26-03,Dana,,,Eve
+        s26-01,Binghao,,s26-04,Gus,,,
+        s26-02,Chris,,,,,,
+        s26-02,Finn,,,,,,
+        """;
+    assertEquals(expected, formattedTeamsCsv(entries, 3, 2));
+  }
+
+  @Test
+  public void writeFormattedTeamsCsv_with_no_entries_writes_titles_and_headers_only()
+      throws Exception {
+    String expected =
+        """
+        by name
+        Name,Team
+        by team
+        Team,Name
+        """;
+    assertEquals(expected, formattedTeamsCsv(List.of(), 3, 2));
+  }
+
+  /**
+   * Issue #18 shows the formatted teams CSV for a real course: 96 students in 16 teams of six. The
+   * entries are read back from its "by name" table (column by column), and the CSV written for them
+   * with the default layout must match the whole example.
+   */
+  @Test
+  public void writeFormattedTeamsCsv_reproduces_the_example_from_issue_18() throws Exception {
+    String example =
+        new String(
+                TeamCsvServiceTests.class
+                    .getResourceAsStream("/teamCsv/formatted-teams-issue-18-example.csv")
+                    .readAllBytes(),
+                StandardCharsets.UTF_8)
+            .replace("\r\n", "\n");
+    List<String> lines = example.lines().toList();
+    assertEquals("by name", lines.get(0));
+    List<String[]> byNameRows =
+        lines.subList(2, 2 + TeamCsvService.NAMES_PER_COLUMN).stream()
+            .map(line -> line.split(",", -1))
+            .toList();
+    List<NameAndTeam> entries = new ArrayList<>();
+    for (int column = 0; column * 3 < byNameRows.get(0).length; column++) {
+      for (String[] row : byNameRows) {
+        entries.add(nt(row[column * 3], row[column * 3 + 1]));
+      }
+    }
+    assertEquals(96, entries.size());
+
+    assertEquals(example, formattedTeamsCsv(entries));
+  }
+
+  @Test
+  public void writeFormattedTeamsCsv_uses_the_default_layout_when_none_is_given() throws Exception {
+    // 30 students in teams of five: the default layout needs two columns in each table, and
+    // swapping the names and teams per column would give a different file.
+    List<NameAndTeam> entries = new ArrayList<>();
+    for (int i = 0; i < 30; i++) {
+      entries.add(nt("Student%02d".formatted(i), "team%d".formatted(i / 5)));
+    }
+    assertEquals(
+        formattedTeamsCsv(
+            entries, TeamCsvService.NAMES_PER_COLUMN, TeamCsvService.TEAMS_PER_COLUMN),
+        formattedTeamsCsv(entries));
+    List<String> lines = formattedTeamsCsv(entries).lines().toList();
+    assertEquals("Name,Team,,Name,Team", lines.get(1));
+    assertEquals("by team", lines.get(2 + TeamCsvService.NAMES_PER_COLUMN));
+    assertEquals("Team,Name,,Team,Name", lines.get(3 + TeamCsvService.NAMES_PER_COLUMN));
   }
 }
