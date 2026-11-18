@@ -801,33 +801,52 @@ describe("StaffTabComponent Tests", () => {
     );
   });
 
-  test("for coming soon tooltip on disabled download CSV button", async () => {
+  test("Download Staff CSV button downloads the staff CSV for the course", async () => {
+    const openSpy = vi.fn();
+    window.open = openSpy;
     render(
       <QueryClientProvider client={queryClient}>
         <StaffTabComponent
-          courseId={1}
+          courseId={7}
           testIdPrefix={testId}
           currentUser={currentUserFixtures.instructorUser}
         />
       </QueryClientProvider>,
     );
 
-    // Wait for table to render
+    const downloadCsvButton = await screen.findByTestId(
+      `${testId}-download-csv-button`,
+    );
+    expect(downloadCsvButton).toHaveTextContent("Download Staff CSV");
+    expect(downloadCsvButton).toBeEnabled();
+    expect(downloadCsvButton).toHaveClass("w-100");
+    expect(screen.queryByText("Coming Soon")).not.toBeInTheDocument();
+
+    fireEvent.click(downloadCsvButton);
+    expect(openSpy).toHaveBeenCalledTimes(1);
+    expect(openSpy).toHaveBeenCalledWith("/api/csv/staff?courseId=7", "_blank");
+  });
+
+  test("Download Staff CSV button is only shown to instructors", async () => {
+    render(
+      <QueryClientProvider client={queryClient}>
+        <StaffTabComponent
+          courseId={7}
+          testIdPrefix={testId}
+          currentUser={currentUserFixtures.instructorUser}
+          isInstructor={false}
+        />
+      </QueryClientProvider>,
+    );
+
     await waitFor(() => {
       expect(
         screen.getByTestId(`${testId}-CourseStaffTable`),
       ).toBeInTheDocument();
     });
-
-    // Download CSV button (no testId, but can find by text)
-    const downloadCsvButton = screen.getByText("Download Staff CSV");
-    expect(downloadCsvButton).toBeDisabled();
-    expect(downloadCsvButton).toHaveStyle("pointerEvents: none");
-    fireEvent.mouseOver(downloadCsvButton);
-
-    await waitFor(() => {
-      expect(screen.getByText("Coming Soon")).toBeInTheDocument();
-    });
+    expect(
+      screen.queryByTestId(`${testId}-download-csv-button`),
+    ).not.toBeInTheDocument();
   });
 
   test("Create Staff Member Modals closes on close button", async () => {

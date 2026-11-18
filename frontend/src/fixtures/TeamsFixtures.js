@@ -168,6 +168,12 @@ const loadTeamResultFixtures = {
     existing: 0,
     rejected: ["bob@ucsb.edu"],
   },
+  missingTeam: {
+    created: 3,
+    existing: 0,
+    rejected: [],
+    missingTeam: ["noteam@chicostate.edu", "blankteam@chicostate.edu"],
+  },
 };
 
 export { teamsFixtures, loadTeamResultFixtures };
