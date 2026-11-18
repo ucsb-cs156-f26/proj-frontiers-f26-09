@@ -1,0 +1,346 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>CSVDownloadsController.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">frontiers</a> &gt; <a href="index.source.html" class="el_package">edu.ucsb.cs156.frontiers.controllers</a> &gt; <span class="el_source">CSVDownloadsController.java</span></div><h1>CSVDownloadsController.java</h1><pre class="source lang-java linenums">package edu.ucsb.cs156.frontiers.controllers;
+
+import com.opencsv.bean.StatefulBeanToCsv;
+import com.opencsv.exceptions.CsvDataTypeMismatchException;
+import com.opencsv.exceptions.CsvRequiredFieldEmptyException;
+import edu.ucsb.cs156.frontiers.entities.Course;
+import edu.ucsb.cs156.frontiers.entities.CourseStaff;
+import edu.ucsb.cs156.frontiers.entities.RosterStudent;
+import edu.ucsb.cs156.frontiers.enums.RosterStatus;
+import edu.ucsb.cs156.frontiers.errors.EntityNotFoundException;
+import edu.ucsb.cs156.frontiers.models.NameAndTeam;
+import edu.ucsb.cs156.frontiers.models.RosterStudentDTO;
+import edu.ucsb.cs156.frontiers.repositories.CourseRepository;
+import edu.ucsb.cs156.frontiers.repositories.CourseStaffRepository;
+import edu.ucsb.cs156.frontiers.repositories.RosterStudentRepository;
+import edu.ucsb.cs156.frontiers.services.RosterStudentDTOService;
+import edu.ucsb.cs156.frontiers.services.SectionTranslationService;
+import edu.ucsb.cs156.frontiers.services.TeamCsvService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import java.io.IOException;
+import java.io.OutputStreamWriter;
+import java.io.Writer;
+import java.nio.charset.StandardCharsets;
+import java.util.List;
+import java.util.Map;
+import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.csv.CSVFormat;
+import org.apache.commons.csv.CSVPrinter;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBody;
+
+@Tag(name = &quot;CSV Downloads&quot;)
+@RequestMapping(&quot;/api/csv&quot;)
+@RestController
+<span class="fc" id="L48">@Slf4j</span>
+<span class="fc" id="L49">public class CSVDownloadsController extends ApiController {</span>
+
+  @Autowired private CourseRepository courseRepository;
+
+  @Autowired private RosterStudentDTOService rosterStudentDTOService;
+
+  @Autowired private RosterStudentRepository rosterStudentRepository;
+
+  @Autowired private CourseStaffRepository courseStaffRepository;
+
+  @Autowired private SectionTranslationService sectionTranslationService;
+
+  @Autowired private TeamCsvService teamCsvService;
+
+  @Operation(
+      summary = &quot;Download CSV File of Roster Students&quot;,
+      description = &quot;Returns a CSV file as a response&quot;,
+      responses = {
+        @ApiResponse(
+            responseCode = &quot;200&quot;,
+            description = &quot;CSV file&quot;,
+            content =
+                @Content(
+                    mediaType = &quot;text/csv&quot;,
+                    schema = @Schema(type = &quot;string&quot;, format = &quot;binary&quot;))),
+        @ApiResponse(responseCode = &quot;500&quot;, description = &quot;Internal Server Error&quot;)
+      })
+  @GetMapping(value = &quot;/rosterstudents&quot;, produces = &quot;text/csv&quot;)
+  @PreAuthorize(&quot;@CourseSecurity.hasManagePermissions(#root, #courseId)&quot;)
+  public ResponseEntity&lt;StreamingResponseBody&gt; csvForQuarter(
+      @Parameter(name = &quot;courseId&quot;, description = &quot;course id&quot;, example = &quot;1&quot;) @RequestParam
+          Long courseId)
+      throws EntityNotFoundException, Exception, IOException {
+<span class="fc" id="L82">    Course course =</span>
+        courseRepository
+<span class="fc" id="L84">            .findById(courseId)</span>
+<span class="fc" id="L85">            .orElseThrow(() -&gt; new EntityNotFoundException(Course.class, courseId));</span>
+<span class="fc" id="L86">    StreamingResponseBody stream =</span>
+        (outputStream) -&gt; {
+<span class="fc" id="L88">          List&lt;RosterStudentDTO&gt; list = rosterStudentDTOService.getRosterStudentDTOs(courseId);</span>
+<span class="fc" id="L89">          try (Writer writer = new OutputStreamWriter(outputStream, StandardCharsets.UTF_8)) {</span>
+            try {
+<span class="fc" id="L91">              StatefulBeanToCsv&lt;RosterStudentDTO&gt; beanToCsvWriter =</span>
+<span class="fc" id="L92">                  rosterStudentDTOService.getStatefulBeanToCSV(writer);</span>
+<span class="fc" id="L93">              beanToCsvWriter.write(list);</span>
+<span class="fc" id="L94">            } catch (CsvDataTypeMismatchException | CsvRequiredFieldEmptyException e) {</span>
+<span class="fc" id="L95">              log.error(&quot;Error writing CSV file&quot;, e);</span>
+<span class="fc" id="L96">              throw new IOException(&quot;Error writing CSV file: &quot; + e.getMessage());</span>
+<span class="fc" id="L97">            }</span>
+          }
+<span class="fc" id="L99">        };</span>
+
+<span class="fc" id="L101">    return ResponseEntity.ok()</span>
+<span class="fc" id="L102">        .contentType(MediaType.parseMediaType(&quot;text/csv; charset=UTF-8&quot;))</span>
+<span class="fc" id="L103">        .header(</span>
+            HttpHeaders.CONTENT_DISPOSITION,
+<span class="fc" id="L105">            String.format(&quot;attachment;filename=%s_roster.csv&quot;, course.getCourseName()))</span>
+<span class="fc" id="L106">        .header(HttpHeaders.CONTENT_TYPE, &quot;text/csv; charset=UTF-8&quot;)</span>
+<span class="fc" id="L107">        .header(HttpHeaders.ACCESS_CONTROL_EXPOSE_HEADERS, HttpHeaders.CONTENT_DISPOSITION)</span>
+<span class="fc" id="L108">        .body(stream);</span>
+  }
+
+  @Operation(
+      summary = &quot;Download CSV File of Course Staff&quot;,
+      description =
+          &quot;Returns a CSV file of the course's staff, one row per staff member, with the header &quot;
+              + CourseStaffCSVController.STAFF_CSV_HEADERS
+              + &quot;. This is the format that Upload Staff CSV (POST /api/coursestaff/upload/csv)&quot;
+              + &quot; accepts, so the file can be uploaded to another course.&quot;,
+      responses = {
+        @ApiResponse(
+            responseCode = &quot;200&quot;,
+            description = &quot;CSV file&quot;,
+            content =
+                @Content(
+                    mediaType = &quot;text/csv&quot;,
+                    schema = @Schema(type = &quot;string&quot;, format = &quot;binary&quot;))),
+        @ApiResponse(responseCode = &quot;404&quot;, description = &quot;Course not found&quot;),
+        @ApiResponse(responseCode = &quot;500&quot;, description = &quot;Internal Server Error&quot;)
+      })
+  @GetMapping(value = &quot;/staff&quot;, produces = &quot;text/csv&quot;)
+  @PreAuthorize(&quot;@CourseSecurity.hasInstructorPermissions(#root, #courseId)&quot;)
+  public ResponseEntity&lt;StreamingResponseBody&gt; staffCsv(
+      @Parameter(name = &quot;courseId&quot;, description = &quot;course id&quot;, example = &quot;1&quot;) @RequestParam
+          Long courseId)
+      throws EntityNotFoundException {
+<span class="fc" id="L135">    Course course =</span>
+        courseRepository
+<span class="fc" id="L137">            .findById(courseId)</span>
+<span class="fc" id="L138">            .orElseThrow(() -&gt; new EntityNotFoundException(Course.class, courseId));</span>
+<span class="fc" id="L139">    StreamingResponseBody stream =</span>
+        (outputStream) -&gt; {
+<span class="fc" id="L141">          Iterable&lt;CourseStaff&gt; staff = courseStaffRepository.findByCourseId(courseId);</span>
+<span class="fc" id="L142">          CSVFormat format =</span>
+              CSVFormat.DEFAULT
+<span class="fc" id="L144">                  .builder()</span>
+<span class="fc" id="L145">                  .setHeader(CourseStaffCSVController.STAFF_CSV_HEADERS.split(&quot;,&quot;))</span>
+<span class="fc" id="L146">                  .build();</span>
+<span class="fc" id="L147">          try (Writer writer = new OutputStreamWriter(outputStream, StandardCharsets.UTF_8);</span>
+<span class="fc" id="L148">              CSVPrinter csvPrinter = new CSVPrinter(writer, format)) {</span>
+<span class="fc bfc" id="L149" title="All 2 branches covered.">            for (CourseStaff staffMember : staff) {</span>
+<span class="fc" id="L150">              csvPrinter.printRecord(</span>
+<span class="fc" id="L151">                  staffMember.getFirstName(), staffMember.getLastName(), staffMember.getEmail());</span>
+<span class="fc" id="L152">            }</span>
+          }
+<span class="fc" id="L154">        };</span>
+
+<span class="fc" id="L156">    return ResponseEntity.ok()</span>
+<span class="fc" id="L157">        .contentType(MediaType.parseMediaType(&quot;text/csv; charset=UTF-8&quot;))</span>
+<span class="fc" id="L158">        .header(</span>
+            HttpHeaders.CONTENT_DISPOSITION,
+<span class="fc" id="L160">            String.format(&quot;attachment;filename=%s_staff.csv&quot;, course.getCourseName()))</span>
+<span class="fc" id="L161">        .header(HttpHeaders.CONTENT_TYPE, &quot;text/csv; charset=UTF-8&quot;)</span>
+<span class="fc" id="L162">        .header(HttpHeaders.ACCESS_CONTROL_EXPOSE_HEADERS, HttpHeaders.CONTENT_DISPOSITION)</span>
+<span class="fc" id="L163">        .body(stream);</span>
+  }
+
+  @Operation(
+      summary = &quot;Download CATME CSV File of Roster Students&quot;,
+      description = &quot;Returns a CSV file as a response&quot;,
+      responses = {
+        @ApiResponse(
+            responseCode = &quot;200&quot;,
+            description = &quot;CSV file&quot;,
+            content =
+                @Content(
+                    mediaType = &quot;text/csv&quot;,
+                    schema = @Schema(type = &quot;string&quot;, format = &quot;binary&quot;))),
+        @ApiResponse(responseCode = &quot;500&quot;, description = &quot;Internal Server Error&quot;)
+      })
+  @GetMapping(value = &quot;/catme&quot;, produces = &quot;text/csv&quot;)
+  @PreAuthorize(&quot;@CourseSecurity.hasManagePermissions(#root, #courseId)&quot;)
+  public ResponseEntity&lt;StreamingResponseBody&gt; catmeCsv(
+      @Parameter(name = &quot;courseId&quot;, description = &quot;course id&quot;, example = &quot;1&quot;) @RequestParam
+          Long courseId)
+      throws EntityNotFoundException {
+<span class="fc" id="L185">    Course course =</span>
+        courseRepository
+<span class="fc" id="L187">            .findById(courseId)</span>
+<span class="fc" id="L188">            .orElseThrow(() -&gt; new EntityNotFoundException(Course.class, courseId));</span>
+<span class="fc" id="L189">    StreamingResponseBody stream =</span>
+        (outputStream) -&gt; {
+<span class="fc" id="L191">          List&lt;RosterStudent&gt; rosterStudents =</span>
+              rosterStudentRepository
+<span class="fc" id="L193">                  .findByCourseIdAndRosterStatusInOrderByFirstNameAscLastNameAscIgnoreCase(</span>
+<span class="fc" id="L194">                      courseId, List.of(RosterStatus.ROSTER, RosterStatus.MANUAL));</span>
+<span class="fc" id="L195">          Map&lt;String, String&gt; sectionTranslations =</span>
+<span class="fc" id="L196">              sectionTranslationService.getSectionTranslations(courseId);</span>
+<span class="fc" id="L197">          try (Writer writer = new OutputStreamWriter(outputStream, StandardCharsets.UTF_8);</span>
+<span class="fc" id="L198">              CSVPrinter csvPrinter = new CSVPrinter(writer, CSVFormat.DEFAULT)) {</span>
+<span class="fc" id="L199">            csvPrinter.printRecord(&quot;first&quot;, &quot;last&quot;, &quot;email&quot;, &quot;id&quot;, &quot;section&quot;, &quot;team&quot;);</span>
+<span class="fc bfc" id="L200" title="All 2 branches covered.">            for (RosterStudent student : rosterStudents) {</span>
+<span class="fc" id="L201">              List&lt;String&gt; teams = student.getTeams();</span>
+<span class="fc bfc" id="L202" title="All 4 branches covered.">              String team = teams != null &amp;&amp; !teams.isEmpty() ? teams.get(0) : &quot;&quot;;</span>
+<span class="fc" id="L203">              csvPrinter.printRecord(</span>
+<span class="fc" id="L204">                  student.getFirstName(),</span>
+<span class="fc" id="L205">                  student.getLastName(),</span>
+<span class="fc" id="L206">                  student.getEmail(),</span>
+<span class="fc" id="L207">                  student.getStudentId(),</span>
+<span class="fc" id="L208">                  SectionTranslationService.translateSection(</span>
+<span class="fc" id="L209">                      student.getSection(), sectionTranslations),</span>
+                  team);
+<span class="fc" id="L211">            }</span>
+          }
+<span class="fc" id="L213">        };</span>
+
+<span class="fc" id="L215">    return ResponseEntity.ok()</span>
+<span class="fc" id="L216">        .contentType(MediaType.parseMediaType(&quot;text/csv; charset=UTF-8&quot;))</span>
+<span class="fc" id="L217">        .header(</span>
+            HttpHeaders.CONTENT_DISPOSITION,
+<span class="fc" id="L219">            String.format(&quot;attachment;filename=%s_catme.csv&quot;, course.getCourseName()))</span>
+<span class="fc" id="L220">        .header(HttpHeaders.CONTENT_TYPE, &quot;text/csv; charset=UTF-8&quot;)</span>
+<span class="fc" id="L221">        .header(HttpHeaders.ACCESS_CONTROL_EXPOSE_HEADERS, HttpHeaders.CONTENT_DISPOSITION)</span>
+<span class="fc" id="L222">        .body(stream);</span>
+  }
+
+  @Operation(
+      summary = &quot;Download compact Name to Team CSV File&quot;,
+      description =
+          &quot;Returns a CSV file with the roster laid out in several side-by-side Name,Team column&quot;
+              + &quot; pairs. Names are sorted by first name and abbreviated as far as possible while&quot;
+              + &quot; remaining unique (first name; first name plus last initial; first name plus last&quot;
+              + &quot; name). Exact duplicate names are marked with an asterisk.&quot;,
+      responses = {
+        @ApiResponse(
+            responseCode = &quot;200&quot;,
+            description = &quot;CSV file&quot;,
+            content =
+                @Content(
+                    mediaType = &quot;text/csv&quot;,
+                    schema = @Schema(type = &quot;string&quot;, format = &quot;binary&quot;))),
+        @ApiResponse(responseCode = &quot;400&quot;, description = &quot;columns is less than 1&quot;),
+        @ApiResponse(responseCode = &quot;404&quot;, description = &quot;Course not found&quot;),
+        @ApiResponse(responseCode = &quot;500&quot;, description = &quot;Internal Server Error&quot;)
+      })
+  @GetMapping(value = &quot;/name2team&quot;, produces = &quot;text/csv&quot;)
+  @PreAuthorize(&quot;@CourseSecurity.hasManagePermissions(#root, #courseId)&quot;)
+  public ResponseEntity&lt;StreamingResponseBody&gt; name2TeamCsv(
+      @Parameter(name = &quot;courseId&quot;, description = &quot;course id&quot;, example = &quot;1&quot;) @RequestParam
+          Long courseId,
+      @Parameter(
+              name = &quot;columns&quot;,
+              description = &quot;number of Name,Team column pairs (default 4)&quot;,
+              example = &quot;4&quot;)
+          @RequestParam(defaultValue = &quot;4&quot;)
+          int columns)
+      throws EntityNotFoundException {
+<span class="fc" id="L256">    return teamCsvResponse(courseId, columns, &quot;name2team&quot;, teamCsvService::writeName2TeamCsv);</span>
+  }
+
+  @Operation(
+      summary = &quot;Download compact Team Table CSV File&quot;,
+      description =
+          &quot;Returns a CSV file with the teams laid out in several side-by-side Team,Name column&quot;
+              + &quot; pairs, one row per student, teams sorted by name and balanced across the columns&quot;
+              + &quot; so that no team is split. Names are sorted by first name and abbreviated as far&quot;
+              + &quot; as possible while remaining unique (first name; first name plus last initial;&quot;
+              + &quot; first name plus last name). Exact duplicate names are marked with an asterisk.&quot;
+              + &quot; Students with no team are listed last with a blank team.&quot;,
+      responses = {
+        @ApiResponse(
+            responseCode = &quot;200&quot;,
+            description = &quot;CSV file&quot;,
+            content =
+                @Content(
+                    mediaType = &quot;text/csv&quot;,
+                    schema = @Schema(type = &quot;string&quot;, format = &quot;binary&quot;))),
+        @ApiResponse(responseCode = &quot;400&quot;, description = &quot;columns is less than 1&quot;),
+        @ApiResponse(responseCode = &quot;404&quot;, description = &quot;Course not found&quot;),
+        @ApiResponse(responseCode = &quot;500&quot;, description = &quot;Internal Server Error&quot;)
+      })
+  @GetMapping(value = &quot;/teamtable&quot;, produces = &quot;text/csv&quot;)
+  @PreAuthorize(&quot;@CourseSecurity.hasManagePermissions(#root, #courseId)&quot;)
+  public ResponseEntity&lt;StreamingResponseBody&gt; teamTableCsv(
+      @Parameter(name = &quot;courseId&quot;, description = &quot;course id&quot;, example = &quot;1&quot;) @RequestParam
+          Long courseId,
+      @Parameter(
+              name = &quot;columns&quot;,
+              description = &quot;number of Team,Name column pairs (default 4)&quot;,
+              example = &quot;4&quot;)
+          @RequestParam(defaultValue = &quot;4&quot;)
+          int columns)
+      throws EntityNotFoundException {
+<span class="fc" id="L292">    return teamCsvResponse(courseId, columns, &quot;teamtable&quot;, teamCsvService::writeTeamTableCsv);</span>
+  }
+
+  /** Writes one of the compact team CSV tables from a list of abbreviated names and teams. */
+  @FunctionalInterface
+  interface TeamCsvWriter {
+    void write(Writer writer, List&lt;NameAndTeam&gt; entries, int columns) throws IOException;
+  }
+
+  /**
+   * Shared response for the compact team CSV downloads: looks up the course, validates the column
+   * count, loads the ROSTER and MANUAL students sorted by first name, abbreviates their names and
+   * streams the table written by the given writer.
+   *
+   * @param courseId the course id
+   * @param columns the number of column pairs, at least 1
+   * @param suffix the file name suffix, e.g. &quot;name2team&quot; gives &quot;&amp;lt;courseName&amp;gt;_name2team.csv&quot;
+   * @param csvWriter writes the table
+   * @return the streaming CSV response
+   * @throws EntityNotFoundException if the course does not exist
+   * @throws IllegalArgumentException if columns is less than 1
+   */
+  private ResponseEntity&lt;StreamingResponseBody&gt; teamCsvResponse(
+      Long courseId, int columns, String suffix, TeamCsvWriter csvWriter)
+      throws EntityNotFoundException {
+<span class="fc" id="L317">    Course course =</span>
+        courseRepository
+<span class="fc" id="L319">            .findById(courseId)</span>
+<span class="fc" id="L320">            .orElseThrow(() -&gt; new EntityNotFoundException(Course.class, courseId));</span>
+<span class="fc bfc" id="L321" title="All 2 branches covered.">    if (columns &lt; 1) {</span>
+<span class="fc" id="L322">      throw new IllegalArgumentException(&quot;columns must be at least 1&quot;);</span>
+    }
+<span class="fc" id="L324">    StreamingResponseBody stream =</span>
+        (outputStream) -&gt; {
+<span class="fc" id="L326">          List&lt;RosterStudent&gt; rosterStudents =</span>
+              rosterStudentRepository
+<span class="fc" id="L328">                  .findByCourseIdAndRosterStatusInOrderByFirstNameAscLastNameAscIgnoreCase(</span>
+<span class="fc" id="L329">                      courseId, List.of(RosterStatus.ROSTER, RosterStatus.MANUAL));</span>
+<span class="fc" id="L330">          List&lt;NameAndTeam&gt; entries = teamCsvService.nameAndTeams(rosterStudents);</span>
+<span class="fc" id="L331">          try (Writer writer = new OutputStreamWriter(outputStream, StandardCharsets.UTF_8)) {</span>
+<span class="fc" id="L332">            csvWriter.write(writer, entries, columns);</span>
+          }
+<span class="fc" id="L334">        };</span>
+
+<span class="fc" id="L336">    return ResponseEntity.ok()</span>
+<span class="fc" id="L337">        .contentType(MediaType.parseMediaType(&quot;text/csv; charset=UTF-8&quot;))</span>
+<span class="fc" id="L338">        .header(</span>
+            HttpHeaders.CONTENT_DISPOSITION,
+<span class="fc" id="L340">            String.format(&quot;attachment;filename=%s_%s.csv&quot;, course.getCourseName(), suffix))</span>
+<span class="fc" id="L341">        .header(HttpHeaders.CONTENT_TYPE, &quot;text/csv; charset=UTF-8&quot;)</span>
+<span class="fc" id="L342">        .header(HttpHeaders.ACCESS_CONTROL_EXPOSE_HEADERS, HttpHeaders.CONTENT_DISPOSITION)</span>
+<span class="fc" id="L343">        .body(stream);</span>
+  }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.15.202606040825</span></div></body></html>
