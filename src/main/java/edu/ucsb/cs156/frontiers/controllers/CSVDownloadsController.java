@@ -292,16 +292,61 @@ public class CSVDownloadsController extends ApiController {
     return teamCsvResponse(courseId, columns, "teamtable", teamCsvService::writeTeamTableCsv);
   }
 
+  @Operation(
+      summary = "Download formatted Teams CSV File",
+      description =
+          "Returns a CSV file with two tables, each preceded by a title line. \"by name\" lists"
+              + " every student in Name,Team column pairs of "
+              + TeamCsvService.NAMES_PER_COLUMN
+              + " students each; \"by team\" lists the teams and their members in Team,Name"
+              + " column pairs of "
+              + TeamCsvService.TEAMS_PER_COLUMN
+              + " teams each, so that no team is split. Both use as many columns as needed."
+              + " Names are sorted by first name and abbreviated as far as possible while"
+              + " remaining unique (first name; first name plus last initial; first name plus last"
+              + " name). Exact duplicate names are marked with an asterisk. Students with no team"
+              + " are listed last in the \"by team\" table, with a blank team. Imported into a"
+              + " spreadsheet, the file only needs formatting and splitting into two tabs.",
+      responses = {
+        @ApiResponse(
+            responseCode = "200",
+            description = "CSV file",
+            content =
+                @Content(
+                    mediaType = "text/csv",
+                    schema = @Schema(type = "string", format = "binary"))),
+        @ApiResponse(responseCode = "404", description = "Course not found"),
+        @ApiResponse(responseCode = "500", description = "Internal Server Error")
+      })
+  @GetMapping(value = "/formattedteams", produces = "text/csv")
+  @PreAuthorize("@CourseSecurity.hasManagePermissions(#root, #courseId)")
+  public ResponseEntity<StreamingResponseBody> formattedTeamsCsv(
+      @Parameter(name = "courseId", description = "course id", example = "1") @RequestParam
+          Long courseId)
+      throws EntityNotFoundException {
+    Course course =
+        courseRepository
+            .findById(courseId)
+            .orElseThrow(() -> new EntityNotFoundException(Course.class, courseId));
+    return teamCsvResponse(course, "formatted_teams", teamCsvService::writeFormattedTeamsCsv);
+  }
+
   /** Writes one of the compact team CSV tables from a list of abbreviated names and teams. */
   @FunctionalInterface
   interface TeamCsvWriter {
     void write(Writer writer, List<NameAndTeam> entries, int columns) throws IOException;
   }
 
+  /** Writes a team CSV file that has no column count from a list of abbreviated names and teams. */
+  @FunctionalInterface
+  interface TeamCsvFileWriter {
+    void write(Writer writer, List<NameAndTeam> entries) throws IOException;
+  }
+
   /**
-   * Shared response for the compact team CSV downloads: looks up the course, validates the column
-   * count, loads the ROSTER and MANUAL students sorted by first name, abbreviates their names and
-   * streams the table written by the given writer.
+   * Shared response for the compact team CSV downloads that take a column count: looks up the
+   * course and validates the column count before streaming the table written by the given writer
+   * (see {@link #teamCsvResponse(Course, String, TeamCsvFileWriter)}).
    *
    * @param courseId the course id
    * @param columns the number of column pairs, at least 1
@@ -321,15 +366,31 @@ public class CSVDownloadsController extends ApiController {
     if (columns < 1) {
       throw new IllegalArgumentException("columns must be at least 1");
     }
+    return teamCsvResponse(
+        course, suffix, (writer, entries) -> csvWriter.write(writer, entries, columns));
+  }
+
+  /**
+   * Shared response for the team CSV downloads of an existing course: loads the ROSTER and MANUAL
+   * students sorted by first name, abbreviates their names and streams the file written by the
+   * given writer.
+   *
+   * @param course the course
+   * @param suffix the file name suffix, e.g. "name2team" gives "&lt;courseName&gt;_name2team.csv"
+   * @param csvWriter writes the file
+   * @return the streaming CSV response
+   */
+  private ResponseEntity<StreamingResponseBody> teamCsvResponse(
+      Course course, String suffix, TeamCsvFileWriter csvWriter) {
     StreamingResponseBody stream =
         (outputStream) -> {
           List<RosterStudent> rosterStudents =
               rosterStudentRepository
                   .findByCourseIdAndRosterStatusInOrderByFirstNameAscLastNameAscIgnoreCase(
-                      courseId, List.of(RosterStatus.ROSTER, RosterStatus.MANUAL));
+                      course.getId(), List.of(RosterStatus.ROSTER, RosterStatus.MANUAL));
           List<NameAndTeam> entries = teamCsvService.nameAndTeams(rosterStudents);
           try (Writer writer = new OutputStreamWriter(outputStream, StandardCharsets.UTF_8)) {
-            csvWriter.write(writer, entries, columns);
+            csvWriter.write(writer, entries);
           }
         };
 
