@@ -177,9 +177,13 @@ describe("TeamsTable tests", () => {
       courseId: "12",
     });
 
-    expect(invalidateQueriesSpy).toHaveBeenCalledTimes(2);
+    await waitFor(() => expect(invalidateQueriesSpy).toHaveBeenCalledTimes(3));
     expect(invalidateQueriesSpy).toHaveBeenCalledWith({
       queryKey: ["/api/teams/all?courseId=12"],
+    });
+    // deleting a team changes the Teams column on the Students tab
+    expect(invalidateQueriesSpy).toHaveBeenCalledWith({
+      queryKey: ["/api/rosterstudents/course/12"],
     });
     expect(invalidateQueriesSpy).toHaveBeenCalledWith({
       queryKey: ["/api/jobs/launch/deleteTeamFromGithub"],
@@ -248,9 +252,13 @@ describe("TeamsTable tests", () => {
       courseId: "12",
     });
 
-    expect(invalidateQueriesSpy).toHaveBeenCalledTimes(2);
+    await waitFor(() => expect(invalidateQueriesSpy).toHaveBeenCalledTimes(3));
     expect(invalidateQueriesSpy).toHaveBeenCalledWith({
       queryKey: ["/api/teams/all?courseId=12"],
+    });
+    // removing a member changes the Teams column on the Students tab
+    expect(invalidateQueriesSpy).toHaveBeenCalledWith({
+      queryKey: ["/api/rosterstudents/course/12"],
     });
 
     expect(invalidateQueriesSpy).toHaveBeenCalledWith({
@@ -334,9 +342,13 @@ describe("TeamsTable tests", () => {
       courseId: "12",
     });
 
-    expect(invalidateQueriesSpy).toHaveBeenCalledTimes(2);
+    await waitFor(() => expect(invalidateQueriesSpy).toHaveBeenCalledTimes(3));
     expect(invalidateQueriesSpy).toHaveBeenCalledWith({
       queryKey: ["/api/teams/all?courseId=12"],
+    });
+    // adding a member changes the Teams column on the Students tab
+    expect(invalidateQueriesSpy).toHaveBeenCalledWith({
+      queryKey: ["/api/rosterstudents/course/12"],
     });
 
     expect(invalidateQueriesSpy).toHaveBeenCalledWith({
