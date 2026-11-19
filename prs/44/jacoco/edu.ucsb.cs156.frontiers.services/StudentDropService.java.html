@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>StudentDropService.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">frontiers</a> &gt; <a href="index.source.html" class="el_package">edu.ucsb.cs156.frontiers.services</a> &gt; <span class="el_source">StudentDropService.java</span></div><h1>StudentDropService.java</h1><pre class="source lang-java linenums">package edu.ucsb.cs156.frontiers.services;
+
+import edu.ucsb.cs156.frontiers.entities.RosterStudent;
+import edu.ucsb.cs156.frontiers.entities.Team;
+import edu.ucsb.cs156.frontiers.entities.TeamMember;
+import edu.ucsb.cs156.frontiers.repositories.TeamMemberRepository;
+import java.util.ArrayList;
+import java.util.List;
+import org.springframework.stereotype.Service;
+
+/**
+ * Carries out everything that needs to happen when roster students are dropped from a course (that
+ * is, when their roster status becomes DROPPED, e.g. because they are missing from a newly uploaded
+ * or synced roster). Code that drops students should call {@link #handleDroppedStudents(List)}, so
+ * that this class is the single place to add any further work that a drop requires.
+ */
+@Service
+public class StudentDropService {
+
+  private final TeamMemberRepository teamMemberRepository;
+
+<span class="fc" id="L22">  public StudentDropService(TeamMemberRepository teamMemberRepository) {</span>
+<span class="fc" id="L23">    this.teamMemberRepository = teamMemberRepository;</span>
+<span class="fc" id="L24">  }</span>
+
+  /**
+   * Handles the consequences of dropping the given students. Currently, each student is removed
+   * from every team they belong to.
+   *
+   * &lt;p&gt;The team memberships are removed from the given student and team objects as well as from the
+   * database. Callers typically hold these objects outside of a transaction and save the students
+   * again afterwards (e.g. {@code RemoveStudentsJob} does), so the objects must not keep referring
+   * to the deleted memberships.
+   *
+   * @param droppedStudents the students who have been dropped from their course
+   */
+  public void handleDroppedStudents(List&lt;RosterStudent&gt; droppedStudents) {
+<span class="fc" id="L38">    List&lt;Long&gt; teamMemberIds = new ArrayList&lt;&gt;();</span>
+<span class="fc bfc" id="L39" title="All 2 branches covered.">    for (RosterStudent student : droppedStudents) {</span>
+<span class="fc" id="L40">      teamMemberIds.addAll(detachFromAllTeams(student));</span>
+<span class="fc" id="L41">    }</span>
+<span class="fc bfc" id="L42" title="All 2 branches covered.">    if (!teamMemberIds.isEmpty()) {</span>
+<span class="fc" id="L43">      teamMemberRepository.deleteAllByIdInBatch(teamMemberIds);</span>
+    }
+<span class="fc" id="L45">  }</span>
+
+  /**
+   * Removes all of a student's team memberships from the student and from the teams.
+   *
+   * &lt;p&gt;The membership lists are replaced with new lists rather than modified in place. A list
+   * loaded by Hibernate remembers the entities it was loaded with, and saving a detached student
+   * whose list still remembers deleted memberships fails because Hibernate looks them up again.
+   *
+   * @param student the student to detach
+   * @return the ids of the removed team memberships, which still need to be deleted
+   */
+  private List&lt;Long&gt; detachFromAllTeams(RosterStudent student) {
+<span class="fc" id="L58">    List&lt;Long&gt; teamMemberIds = new ArrayList&lt;&gt;();</span>
+<span class="fc" id="L59">    List&lt;TeamMember&gt; memberships = student.getTeamMembers();</span>
+<span class="fc bfc" id="L60" title="All 2 branches covered.">    if (memberships != null) {</span>
+<span class="fc bfc" id="L61" title="All 2 branches covered.">      for (TeamMember membership : memberships) {</span>
+<span class="fc" id="L62">        Team team = membership.getTeam();</span>
+<span class="fc" id="L63">        List&lt;TeamMember&gt; remainingMembers = new ArrayList&lt;&gt;(team.getTeamMembers());</span>
+<span class="fc" id="L64">        remainingMembers.remove(membership);</span>
+<span class="fc" id="L65">        team.setTeamMembers(remainingMembers);</span>
+<span class="fc" id="L66">        teamMemberIds.add(membership.getId());</span>
+<span class="fc" id="L67">      }</span>
+<span class="fc" id="L68">      student.setTeamMembers(new ArrayList&lt;&gt;());</span>
+    }
+<span class="fc" id="L70">    return teamMemberIds;</span>
+  }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.15.202606040825</span></div></body></html>
