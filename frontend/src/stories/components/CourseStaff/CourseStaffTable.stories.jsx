@@ -56,6 +56,15 @@ ThreeItemsAdminUser.parameters = {
   ],
 };
 
+export const ThreeItemsWithInstructorRow = Template.bind({});
+ThreeItemsWithInstructorRow.args = {
+  staff: courseStaffFixtures.threeStaff,
+  currentUser: currentUserFixtures.adminUser,
+  courseId: "1",
+  instructorEmail: courseStaffFixtures.threeStaff[0].email,
+};
+ThreeItemsWithInstructorRow.parameters = ThreeItemsAdminUser.parameters;
+
 export const ItemWithEachStatusAdminUser = Template.bind({});
 ItemWithEachStatusAdminUser.args = {
   staff: courseStaffFixtures.staffWithEachStatus,
