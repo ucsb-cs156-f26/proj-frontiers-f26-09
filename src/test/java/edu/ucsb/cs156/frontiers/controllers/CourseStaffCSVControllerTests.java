@@ -349,27 +349,19 @@ public class CourseStaffCSVControllerTests extends ControllerTestCase {
             .school(School.UCSB)
             .build();
 
-    CourseStaff existing =
-        CourseStaff.builder()
-            .id(5L)
-            .firstName("Chris")
-            .lastName("Gaucho")
-            .email("cgaucho@example.org")
-            .course(course)
-            .build();
-
     String csv =
         """
         firstName,lastName,email
-        Chris,Gaucho,cgaucho@example.org
+        Chris,Gaucho,CGaucho@Example.org
         Lauren,Del Playa,ldelplaya@ucsb.edu
-        Lauren,Again, ldelplaya@ucsb.edu
+        Lauren,Again, LDelPlaya@UCSB.edu
         Sam,Storke,sstorke@ucsb.edu
         """;
 
     when(courseRepository.findById(eq(1L))).thenReturn(Optional.of(course));
-    when(courseStaffRepository.findByEmailAndCourse(eq("cgaucho@example.org"), eq(course)))
-        .thenReturn(Optional.of(existing));
+    when(courseStaffRepository.existsByCourseAndEmailIgnoreCase(
+            eq(course), eq("CGaucho@Example.org")))
+        .thenReturn(true);
     when(courseStaffRepository.save(any(CourseStaff.class)))
         .thenAnswer(invocation -> invocation.getArgument(0));
 
@@ -395,6 +387,6 @@ public class CourseStaffCSVControllerTests extends ControllerTestCase {
 
     Map<?, ?> body = objectMapper.readValue(response.getResponse().getContentAsString(), Map.class);
     assertEquals(
-        Map.of("count", 2, "rejected", List.of("cgaucho@example.org", "ldelplaya@ucsb.edu")), body);
+        Map.of("count", 2, "rejected", List.of("CGaucho@Example.org", "LDelPlaya@UCSB.edu")), body);
   }
 }

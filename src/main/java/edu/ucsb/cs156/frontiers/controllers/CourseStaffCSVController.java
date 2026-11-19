@@ -19,6 +19,7 @@ import java.io.InputStreamReader;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import lombok.extern.slf4j.Slf4j;
@@ -50,8 +51,9 @@ public class CourseStaffCSVController extends ApiController {
   /**
    * Upload course staff from a CSV file with the headers firstName,lastName,email. Rows whose email
    * is already on the course's staff, or that repeat an email from an earlier row of the same file,
-   * are not added; every other row is still added. If any row was rejected, the response status is
-   * 409 (Conflict) and the body lists the rejected emails.
+   * are not added (emails are compared ignoring upper and lower case); every other row is still
+   * added. If any row was rejected, the response status is 409 (Conflict) and the body lists the
+   * rejected emails.
    *
    * @param courseId id of the course
    * @param file the CSV file
@@ -97,8 +99,8 @@ public class CourseStaffCSVController extends ApiController {
         }
 
         String email = row[2].trim();
-        if (!seenEmails.add(email)
-            || courseStaffRepository.findByEmailAndCourse(email, course).isPresent()) {
+        if (!seenEmails.add(email.toLowerCase(Locale.ROOT))
+            || courseStaffRepository.existsByCourseAndEmailIgnoreCase(course, email)) {
           rejected.add(email);
           continue;
         }
