@@ -61,7 +61,7 @@ public class CourseStaffController extends ApiController {
 
     String normalizedEmail = email.strip();
 
-    if (courseStaffRepository.findByEmailAndCourse(normalizedEmail, course).isPresent()) {
+    if (courseStaffRepository.existsByCourseAndEmailIgnoreCase(course, normalizedEmail)) {
       throw new ResponseStatusException(
           HttpStatus.CONFLICT,
           "A staff member with email %s already exists in this course".formatted(normalizedEmail));

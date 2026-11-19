@@ -130,7 +130,10 @@ public class CourseStaffControllerTests extends ControllerTestCase {
     assertEquals(expectedJson, responseString);
   }
 
-  /** Test that posting a staff member whose email is already in the course returns 409 */
+  /**
+   * Test that posting a staff member whose email is already in the course, in any letter case,
+   * returns 409
+   */
   @Test
   @WithMockUser(roles = {"ADMIN"})
   public void testPostCourseStaffDuplicateEmailReturnsConflict() throws Exception {
@@ -143,19 +146,10 @@ public class CourseStaffControllerTests extends ControllerTestCase {
             .school(School.UCSB)
             .build();
 
-    CourseStaff existing =
-        CourseStaff.builder()
-            .id(5L)
-            .firstName("Chris")
-            .lastName("Gaucho")
-            .email("cgaucho@example.org")
-            .course(course1)
-            .orgStatus(OrgStatus.PENDING)
-            .build();
-
     when(courseRepository.findById(eq(1L))).thenReturn(Optional.of(course1));
-    when(courseStaffRepository.findByEmailAndCourse(eq("cgaucho@example.org"), eq(course1)))
-        .thenReturn(Optional.of(existing));
+    when(courseStaffRepository.existsByCourseAndEmailIgnoreCase(
+            eq(course1), eq("CGaucho@Example.org")))
+        .thenReturn(true);
 
     MvcResult response =
         mockMvc
@@ -164,14 +158,14 @@ public class CourseStaffControllerTests extends ControllerTestCase {
                     .with(csrf())
                     .param("firstName", "Chris")
                     .param("lastName", "Gaucho")
-                    .param("email", "  cgaucho@example.org  ")
+                    .param("email", "  CGaucho@Example.org  ")
                     .param("courseId", "1"))
             .andExpect(status().isConflict())
             .andReturn();
 
     ResponseStatusException e = (ResponseStatusException) response.getResolvedException();
     assertEquals(
-        "A staff member with email cgaucho@example.org already exists in this course",
+        "A staff member with email CGaucho@Example.org already exists in this course",
         e.getReason());
     verify(courseStaffRepository, never()).save(any());
     verify(updateUserService, never()).attachUserToCourseStaff(any());
