@@ -32,6 +32,7 @@ import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MvcResult;
+import org.springframework.web.server.ResponseStatusException;
 
 @Slf4j
 @WebMvcTest(controllers = CourseStaffController.class)
@@ -127,6 +128,53 @@ public class CourseStaffControllerTests extends ControllerTestCase {
     String responseString = response.getResponse().getContentAsString();
     String expectedJson = mapper.writeValueAsString(cs2);
     assertEquals(expectedJson, responseString);
+  }
+
+  /** Test that posting a staff member whose email is already in the course returns 409 */
+  @Test
+  @WithMockUser(roles = {"ADMIN"})
+  public void testPostCourseStaffDuplicateEmailReturnsConflict() throws Exception {
+    Course course1 =
+        Course.builder()
+            .id(1L)
+            .courseName("CS156")
+            .orgName("ucsb-cs156-s25")
+            .term("S25")
+            .school(School.UCSB)
+            .build();
+
+    CourseStaff existing =
+        CourseStaff.builder()
+            .id(5L)
+            .firstName("Chris")
+            .lastName("Gaucho")
+            .email("cgaucho@example.org")
+            .course(course1)
+            .orgStatus(OrgStatus.PENDING)
+            .build();
+
+    when(courseRepository.findById(eq(1L))).thenReturn(Optional.of(course1));
+    when(courseStaffRepository.findByEmailAndCourse(eq("cgaucho@example.org"), eq(course1)))
+        .thenReturn(Optional.of(existing));
+
+    MvcResult response =
+        mockMvc
+            .perform(
+                post("/api/coursestaff/post")
+                    .with(csrf())
+                    .param("firstName", "Chris")
+                    .param("lastName", "Gaucho")
+                    .param("email", "  cgaucho@example.org  ")
+                    .param("courseId", "1"))
+            .andExpect(status().isConflict())
+            .andReturn();
+
+    ResponseStatusException e = (ResponseStatusException) response.getResolvedException();
+    assertEquals(
+        "A staff member with email cgaucho@example.org already exists in this course",
+        e.getReason());
+    verify(courseStaffRepository, never()).save(any());
+    verify(updateUserService, never()).attachUserToCourseStaff(any());
   }
 
   /** Test the POST endpoint email sanitization */

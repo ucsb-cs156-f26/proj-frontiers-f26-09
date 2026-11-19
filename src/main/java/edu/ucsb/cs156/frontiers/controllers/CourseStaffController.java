@@ -14,10 +14,12 @@ import java.security.NoSuchAlgorithmException;
 import java.security.spec.InvalidKeySpecException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.server.ResponseStatusException;
 
 @Tag(name = "CourseStaff")
 @RequestMapping("/api/coursestaff")
@@ -57,11 +59,19 @@ public class CourseStaffController extends ApiController {
             .findById(courseId)
             .orElseThrow(() -> new EntityNotFoundException(Course.class, courseId));
 
+    String normalizedEmail = email.strip();
+
+    if (courseStaffRepository.findByEmailAndCourse(normalizedEmail, course).isPresent()) {
+      throw new ResponseStatusException(
+          HttpStatus.CONFLICT,
+          "A staff member with email %s already exists in this course".formatted(normalizedEmail));
+    }
+
     CourseStaff courseStaff =
         CourseStaff.builder()
             .firstName(firstName)
             .lastName(lastName)
-            .email(email.strip())
+            .email(normalizedEmail)
             .course(course)
             .build();
 
