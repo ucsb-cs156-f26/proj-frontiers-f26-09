@@ -1,0 +1,17 @@
+{ "databaseChangeLog": [
+  {
+    "changeSet": {
+      "id": "030-add-course-staff-unique-constraint",
+      "author": "amayabratcher",
+      "changes": [
+        {
+          "addUniqueConstraint": {
+            "tableName": "COURSE_STAFF",
+            "columnNames": "COURSE_ID, EMAIL",
+            "constraintName": "UK_COURSE_STAFF_COURSE_EMAIL"
+          }
+        }
+      ]
+    }
+  }
+]}
