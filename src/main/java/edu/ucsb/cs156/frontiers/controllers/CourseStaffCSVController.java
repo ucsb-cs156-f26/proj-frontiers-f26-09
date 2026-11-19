@@ -16,10 +16,15 @@ import java.io.BufferedInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -42,12 +47,22 @@ public class CourseStaffCSVController extends ApiController {
 
   public static final String STAFF_CSV_HEADERS = "firstName,lastName,email";
 
+  /**
+   * Upload course staff from a CSV file with the headers firstName,lastName,email. Rows whose email
+   * is already on the course's staff, or that repeat an email from an earlier row of the same file,
+   * are not added; every other row is still added. If any row was rejected, the response status is
+   * 409 (Conflict) and the body lists the rejected emails.
+   *
+   * @param courseId id of the course
+   * @param file the CSV file
+   * @return the number of staff added, and the rejected emails if there were any
+   */
   @Operation(summary = "Upload Course Staff from CSV")
   @PreAuthorize("@CourseSecurity.hasInstructorPermissions(#root, #courseId)")
   @PostMapping(
       value = "/upload/csv",
       consumes = {"multipart/form-data"})
-  public Map<String, Integer> uploadStaffCSV(
+  public ResponseEntity<Map<String, Object>> uploadStaffCSV(
       @Parameter(name = "courseId") @RequestParam Long courseId,
       @Parameter(name = "file") @RequestParam("file") MultipartFile file)
       throws IOException, CsvException {
@@ -58,6 +73,8 @@ public class CourseStaffCSVController extends ApiController {
             .orElseThrow(() -> new EntityNotFoundException(Course.class, courseId.toString()));
 
     int count = 0;
+    List<String> rejected = new ArrayList<>();
+    Set<String> seenEmails = new HashSet<>();
 
     try (InputStream inputStream = new BufferedInputStream(file.getInputStream());
         InputStreamReader reader = new InputStreamReader(inputStream);
@@ -79,11 +96,18 @@ public class CourseStaffCSVController extends ApiController {
                   "CSV row does not have enough columns. Expected at least 3, got %d", row.length));
         }
 
+        String email = row[2].trim();
+        if (!seenEmails.add(email)
+            || courseStaffRepository.findByEmailAndCourse(email, course).isPresent()) {
+          rejected.add(email);
+          continue;
+        }
+
         CourseStaff courseStaff =
             CourseStaff.builder()
                 .firstName(row[0].trim())
                 .lastName(row[1].trim())
-                .email(row[2].trim())
+                .email(email)
                 .course(course)
                 .build();
 
@@ -99,7 +123,11 @@ public class CourseStaffCSVController extends ApiController {
       }
     }
 
-    return Map.of("count", count);
+    if (rejected.isEmpty()) {
+      return ResponseEntity.ok(Map.of("count", count));
+    }
+    return ResponseEntity.status(HttpStatus.CONFLICT)
+        .body(Map.of("count", count, "rejected", rejected));
   }
 
   static void validateHeaders(String[] headers) {

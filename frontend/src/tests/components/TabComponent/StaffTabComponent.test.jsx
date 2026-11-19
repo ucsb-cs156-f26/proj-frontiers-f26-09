@@ -693,7 +693,71 @@ describe("StaffTabComponent Tests", () => {
       ).not.toBeInTheDocument();
     });
   });
+  test("CSV upload with duplicates lists the rejected emails and refreshes the staff list", async () => {
+    const queryClientSpecific = new QueryClient({
+      defaultOptions: {
+        queries: { retry: false },
+        mutations: { retry: false },
+      },
+    });
 
+    axiosMock
+      .onGet("/api/coursestaff/course?courseId=1")
+      .reply(200, courseStaffFixtures.threeStaff);
+    axiosMock.onPost("/api/coursestaff/upload/csv").reply(409, {
+      count: 2,
+      rejected: ["cgaucho@ucsb.edu", "ldelplaya@ucsb.edu"],
+    });
+
+    render(
+      <QueryClientProvider client={queryClientSpecific}>
+        <StaffTabComponent
+          courseId={1}
+          testIdPrefix={testId}
+          currentUser={currentUserFixtures.instructorUser}
+        />
+      </QueryClientProvider>,
+    );
+
+    await screen.findByTestId(`${testId}-CourseStaffTable`);
+    const getCountBefore = axiosMock.history.get.filter(
+      (r) => r.url === "/api/coursestaff/course?courseId=1",
+    ).length;
+
+    fireEvent.click(screen.getByTestId(`${testId}-csv-button`));
+    await screen.findByTestId(`${testId}-csv-modal`);
+
+    const file = new File(["firstName,lastName,email"], "staff.csv", {
+      type: "text/csv",
+    });
+    await userEvent.upload(
+      screen.getByTestId("CourseStaffCSVUploadForm-upload"),
+      file,
+    );
+    await userEvent.click(
+      screen.getByTestId("CourseStaffCSVUploadForm-submit"),
+    );
+
+    await waitFor(() => expect(mockToastError).toBeCalled());
+    expect(mockToastError).toHaveBeenCalledTimes(1);
+    expect(mockToastError).toBeCalledWith(
+      "Added 2 staff member(s). These emails were not added because they are already staff in this course or appear more than once in the file: cgaucho@ucsb.edu, ldelplaya@ucsb.edu",
+    );
+    expect(mockToast).not.toBeCalled();
+
+    await waitFor(() =>
+      expect(
+        screen.queryByTestId(`${testId}-csv-modal`),
+      ).not.toBeInTheDocument(),
+    );
+    await waitFor(() =>
+      expect(
+        axiosMock.history.get.filter(
+          (r) => r.url === "/api/coursestaff/course?courseId=1",
+        ).length,
+      ).toBeGreaterThan(getCountBefore),
+    );
+  });
   test("CSV upload shows error toast on failure", async () => {
     const queryClientSpecific = new QueryClient({
       defaultOptions: {
