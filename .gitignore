@@ -1,4 +1,4 @@
-CANVAS_TOKEN
+uCANVAS_TOKEN
 
 ## Don't store .pem files, or pkcs8.key
 
@@ -65,3 +65,6 @@ secrets.yaml
 secrets.yaml.backup
 .DS_Store
 
+
+
+*:Zone.Identifier
