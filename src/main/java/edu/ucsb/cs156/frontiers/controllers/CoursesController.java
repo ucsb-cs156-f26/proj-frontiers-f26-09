@@ -20,6 +20,7 @@ import edu.ucsb.cs156.frontiers.repositories.InstructorRepository;
 import edu.ucsb.cs156.frontiers.repositories.RosterStudentRepository;
 import edu.ucsb.cs156.frontiers.repositories.UserRepository;
 import edu.ucsb.cs156.frontiers.services.CanvasApiTokenSecurityService;
+import edu.ucsb.cs156.frontiers.services.CourseStaffService;
 import edu.ucsb.cs156.frontiers.services.OrganizationLinkerService;
 import edu.ucsb.cs156.jobs.repositories.JobsRepository;
 import io.swagger.v3.oas.annotations.Operation;
@@ -67,8 +68,11 @@ public class CoursesController extends ApiController {
 
   @Autowired private JobsRepository jobsRepository;
 
+  @Autowired private CourseStaffService courseStaffService;
+
   /**
-   * This method creates a new Course.
+   * This method creates a new Course. The instructor (the user creating the course) is also added
+   * as a staff member of the new course.
    *
    * @param courseName the name of the course
    * @param term the term of the course
@@ -97,6 +101,7 @@ public class CoursesController extends ApiController {
             .canvasCourseId(canvasCourseId)
             .build();
     Course savedCourse = courseRepository.save(course);
+    courseStaffService.ensureInstructorIsStaff(savedCourse);
 
     return new InstructorCourseView(savedCourse);
   }
@@ -412,7 +417,17 @@ public class CoursesController extends ApiController {
         .collect(Collectors.toList());
   }
 
-  @Operation(summary = "Update instructor email for a course (admin only)")
+  /**
+   * This method changes the instructor of a course (admin only). The new instructor is also added
+   * as a staff member of the course, unless they are already on staff. The old instructor stays on
+   * the staff list and can be kept or removed by hand.
+   *
+   * @param courseId the id of the course
+   * @param instructorEmail the email of the new instructor (must be an instructor or admin)
+   */
+  @Operation(
+      summary = "Update instructor email for a course (admin only)",
+      description = "The new instructor is also added as a staff member of the course.")
   @PreAuthorize("hasRole('ROLE_ADMIN')")
   @PutMapping("/updateInstructor")
   public InstructorCourseView updateInstructorEmail(
@@ -436,6 +451,7 @@ public class CoursesController extends ApiController {
 
     course.setInstructorEmail(instructorEmail);
     Course savedCourse = courseRepository.save(course);
+    courseStaffService.ensureInstructorIsStaff(savedCourse);
 
     return new InstructorCourseView(savedCourse);
   }
@@ -491,13 +507,22 @@ public class CoursesController extends ApiController {
             .findById(courseId)
             .orElseThrow(() -> new EntityNotFoundException(Course.class, courseId));
 
+    // The instructor's own staff row doesn't count as staff here: the instructor can't be
+    // removed from the staff list, so that row is deleted together with the course.
+    List<CourseStaff> instructorStaff =
+        course.getCourseStaff().stream()
+            .filter(staff -> CourseStaffService.isInstructorStaff(course, staff))
+            .toList();
+    boolean hasOtherStaff = course.getCourseStaff().size() > instructorStaff.size();
+
     // Check if course has roster students or staff
-    if (!course.getRosterStudents().isEmpty() || !course.getCourseStaff().isEmpty()) {
+    if (!course.getRosterStudents().isEmpty() || hasOtherStaff) {
       throw new IllegalArgumentException("Cannot delete course with students or staff");
     }
 
     linkerService.unenrollOrganization(course);
     jobsRepository.deleteByScopeTypeAndScopeId("course", courseId);
+    courseStaffRepository.deleteAll(instructorStaff);
     courseRepository.delete(course);
     return genericMessage("Course with id %s deleted".formatted(course.getId()));
   }

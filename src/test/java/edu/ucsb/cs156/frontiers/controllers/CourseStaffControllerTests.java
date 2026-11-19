@@ -962,6 +962,87 @@ public class CourseStaffControllerTests extends ControllerTestCase {
 
   @Test
   @WithInstructorCoursePermissions
+  public void testDeleteCourseStaff_instructor_returnsBadRequest() throws Exception {
+    // a GitHub-linked course and removeFromOrg=true, so we can check the GitHub org
+    // removal is not attempted either
+    course1.setInstructorEmail("instructor@ucsb.edu");
+    course1.setOrgName("test-org");
+    course1.setInstallationId("12345");
+
+    CourseStaff instructorStaff =
+        CourseStaff.builder()
+            .id(1L)
+            .firstName("Chris")
+            .lastName("Gaucho")
+            .email("instructor@ucsb.edu")
+            .course(course1)
+            .orgStatus(OrgStatus.OWNER)
+            .githubId(12345)
+            .githubLogin("cgaucho")
+            .build();
+
+    List<CourseStaff> staffList = new ArrayList<>();
+    staffList.add(instructorStaff);
+    course1.setCourseStaff(staffList);
+
+    when(courseStaffRepository.findById(eq(1L))).thenReturn(Optional.of(instructorStaff));
+
+    MvcResult response =
+        mockMvc
+            .perform(
+                delete("/api/coursestaff/delete")
+                    .with(csrf())
+                    .param("id", "1")
+                    .param("courseId", "7")
+                    .param("removeFromOrg", "true"))
+            .andExpect(status().isBadRequest())
+            .andReturn();
+
+    Map<String, String> expectedMap =
+        Map.of(
+            "type", "IllegalArgumentException",
+            "message", "you cannot delete the instructor as a staff member");
+    assertEquals(
+        mapper.writeValueAsString(expectedMap), response.getResponse().getContentAsString());
+
+    verify(courseStaffRepository, never()).delete(any(CourseStaff.class));
+    verify(organizationMemberService, never()).removeOrganizationMember(any(CourseStaff.class));
+    assertEquals(List.of(instructorStaff), course1.getCourseStaff());
+    assertEquals(course1, instructorStaff.getCourse());
+  }
+
+  @Test
+  @WithInstructorCoursePermissions
+  public void testDeleteCourseStaff_courseHasDifferentInstructor_success() throws Exception {
+    course1.setInstructorEmail("instructor@ucsb.edu");
+
+    CourseStaff staffMember =
+        CourseStaff.builder()
+            .id(1L)
+            .firstName("Test")
+            .lastName("Staff")
+            .email("teststaff@ucsb.edu")
+            .course(course1)
+            .orgStatus(OrgStatus.PENDING)
+            .build();
+
+    List<CourseStaff> staffList = new ArrayList<>();
+    staffList.add(staffMember);
+    course1.setCourseStaff(staffList);
+
+    when(courseStaffRepository.findById(eq(1L))).thenReturn(Optional.of(staffMember));
+
+    mockMvc
+        .perform(
+            delete("/api/coursestaff/delete").with(csrf()).param("id", "1").param("courseId", "7"))
+        .andExpect(status().isOk());
+
+    verify(courseStaffRepository).delete(eq(staffMember));
+    assertEquals(List.of(), course1.getCourseStaff());
+  }
+
+  @Test
+  @WithInstructorCoursePermissions
   public void testDeleteCourseStaff_withGithubLogin_success() throws Exception {
     course1.setOrgName("test-org");
     course1.setInstallationId("12345");

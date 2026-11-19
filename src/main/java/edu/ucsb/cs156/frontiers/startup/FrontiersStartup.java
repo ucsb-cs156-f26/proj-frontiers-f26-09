@@ -1,7 +1,10 @@
 package edu.ucsb.cs156.frontiers.startup;
 
 import edu.ucsb.cs156.frontiers.entities.Admin;
+import edu.ucsb.cs156.frontiers.entities.Course;
 import edu.ucsb.cs156.frontiers.repositories.AdminRepository;
+import edu.ucsb.cs156.frontiers.repositories.CourseRepository;
+import edu.ucsb.cs156.frontiers.services.CourseStaffService;
 import java.util.List;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -21,6 +24,10 @@ public class FrontiersStartup {
 
   @Autowired AdminRepository adminRepository;
 
+  @Autowired CourseRepository courseRepository;
+
+  @Autowired CourseStaffService courseStaffService;
+
   /**
    * Called once at application startup time . Put code here if you want it to run once each time
    * the Spring Boot application starts up in all environments.
@@ -38,6 +45,34 @@ public class FrontiersStartup {
           });
     } catch (Exception e) {
       log.error("Error in loading all ADMIN_EMAILS:", e);
+    }
+
+    addInstructorsAsStaff();
+  }
+
+  /**
+   * Makes sure the instructor of every course is on that course's staff list, adding them where
+   * they are missing. Courses without an instructor email are skipped. An error on one course is
+   * logged and does not stop the others or the application from starting.
+   */
+  void addInstructorsAsStaff() {
+    try {
+      for (Course course : courseRepository.findAll()) {
+        String instructorEmail = course.getInstructorEmail();
+        if (instructorEmail == null || instructorEmail.isBlank()) {
+          log.warn(
+              "Course id {} has no instructor email; not adding an instructor as staff",
+              course.getId());
+          continue;
+        }
+        try {
+          courseStaffService.ensureInstructorIsStaff(course);
+        } catch (Exception e) {
+          log.error("Error adding instructor as staff for course id {}:", course.getId(), e);
+        }
+      }
+    } catch (Exception e) {
+      log.error("Error adding instructors as staff for all courses:", e);
     }
   }
 

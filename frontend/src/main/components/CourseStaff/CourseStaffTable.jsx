@@ -1,6 +1,6 @@
 import React from "react";
 import OurTable, { ButtonColumn } from "main/components/OurTable";
-import { Tooltip, OverlayTrigger } from "react-bootstrap";
+import { Button, Tooltip, OverlayTrigger } from "react-bootstrap";
 
 import { useBackendMutation } from "main/utils/useBackend";
 import { hasRole } from "main/utils/currentUser";
@@ -10,12 +10,24 @@ import { toast } from "react-toastify";
 import CourseStaffDeleteModal from "main/components/CourseStaff/CourseStaffDeleteModal";
 import { courseEmailsQueryKey } from "main/utils/courseEmailsUtils";
 
+const cannotDeleteInstructorMessage =
+  "You cannot delete the instructor as a staff member.";
+
+/**
+ * instructorEmail is the email of the course's instructor, whose row shows
+ * "Instructor" instead of a Delete button. courseLoaded must be true once the
+ * course's details (and so instructorEmail) have loaded; until then the Delete
+ * buttons are disabled, so the instructor can't be deleted before we know who
+ * they are.
+ */
 export default function CourseStaffTable({
   staff,
   currentUser,
   courseId,
   testIdPrefix = "CourseStaffTable",
   isInstructor = true,
+  instructorEmail,
+  courseLoaded = false,
 }) {
   const [showEditModal, setShowEditModal] = React.useState(false);
   const [editStaff, setEditStaff] = React.useState(null);
@@ -77,12 +89,27 @@ export default function CourseStaffTable({
   // Stryker disable next-line all
   const deleteCallback = async (cell) => {
     setShowDeleteModal(true);
-    setDeleteStaff(cell.row.original.id);
+    setDeleteStaff(cell.row.original);
   };
 
+  // If the staff member whose Delete window is open becomes the course's
+  // instructor (for example, the course's details change while the window is
+  // open), close the window instead of letting the deletion go ahead.
+  React.useEffect(() => {
+    if (showDeleteModal && deleteStaff.email === instructorEmail) {
+      setShowDeleteModal(false);
+      toast(cannotDeleteInstructorMessage);
+    }
+  }, [showDeleteModal, deleteStaff, instructorEmail]);
+
   const submitDeleteForm = (data) => {
+    // Check again right before deleting, in case the staff member became the
+    // instructor after the Delete window was opened.
+    if (deleteStaff.email === instructorEmail) {
+      return;
+    }
     deleteMutation.mutate({
-      id: deleteStaff,
+      id: deleteStaff.id,
       ...data,
     });
   };
@@ -217,9 +244,33 @@ export default function CourseStaffTable({
 
   if (isInstructor && hasRole(currentUser, "ROLE_INSTRUCTOR")) {
     columns.push(ButtonColumn("Edit", "primary", editCallback, testIdPrefix));
-    columns.push(
-      ButtonColumn("Delete", "danger", deleteCallback, testIdPrefix),
-    );
+    columns.push({
+      id: "Delete",
+      header: "Delete",
+      cell: ({ cell }) => {
+        // The instructor of the course can't be removed from the staff list,
+        // so their row shows "Instructor" instead of a Delete button.
+        if (cell.row.original.email === instructorEmail) {
+          return (
+            <span
+              data-testid={`${testIdPrefix}-cell-row-${cell.row.index}-col-Delete-instructor`}
+            >
+              Instructor
+            </span>
+          );
+        }
+        return (
+          <Button
+            variant="danger"
+            onClick={() => deleteCallback(cell)}
+            disabled={!courseLoaded}
+            data-testid={`${testIdPrefix}-cell-row-${cell.row.index}-col-Delete-button`}
+          >
+            Delete
+          </Button>
+        );
+      },
+    });
   }
 
   return (
