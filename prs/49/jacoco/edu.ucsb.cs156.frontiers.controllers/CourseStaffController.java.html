@@ -61,7 +61,7 @@ import org.springframework.web.server.ResponseStatusException;
 
 <span class="fc" id="L62">    String normalizedEmail = email.strip();</span>
 
-<span class="fc bfc" id="L64" title="All 2 branches covered.">    if (courseStaffRepository.findByEmailAndCourse(normalizedEmail, course).isPresent()) {</span>
+<span class="fc bfc" id="L64" title="All 2 branches covered.">    if (courseStaffRepository.existsByCourseAndEmailIgnoreCase(course, normalizedEmail)) {</span>
 <span class="fc" id="L65">      throw new ResponseStatusException(</span>
           HttpStatus.CONFLICT,
 <span class="fc" id="L67">          &quot;A staff member with email %s already exists in this course&quot;.formatted(normalizedEmail));</span>
