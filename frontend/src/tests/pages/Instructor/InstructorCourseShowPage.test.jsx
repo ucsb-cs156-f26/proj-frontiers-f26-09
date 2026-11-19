@@ -1601,8 +1601,10 @@ describe("InstructorCourseShowPage tests", () => {
         "InstructorCourseShowPage-catme-tab-component",
       );
       expect(tab.parentElement).toHaveClass("pt-2");
-      expect(tab).toHaveTextContent("Download CSV Roster in CATME format")
-      expect(screen.queryByText("CATME features coming soon")).not.toBeInTheDocument();
+      expect(tab).toHaveTextContent("Download CSV Roster in CATME format");
+      expect(
+        screen.queryByText("CATME features coming soon"),
+      ).not.toBeInTheDocument();
     });
 
     test("is hidden when the ENABLE_CATME option is disabled", async () => {
