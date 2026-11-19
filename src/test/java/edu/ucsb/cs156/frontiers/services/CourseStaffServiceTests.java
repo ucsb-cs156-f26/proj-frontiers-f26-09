@@ -1,5 +1,7 @@
 package edu.ucsb.cs156.frontiers.services;
 
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
@@ -90,5 +92,30 @@ public class CourseStaffServiceTests {
             .orgStatus(OrgStatus.JOINCOURSE)
             .build();
     verify(courseStaffRepository, times(1)).save(eq(expected));
+  }
+
+  @Test
+  public void isInstructorStaff_true_whenStaffEmailIsTheInstructorEmail() {
+    Course course = Course.builder().id(1L).instructorEmail(INSTRUCTOR_EMAIL).build();
+    CourseStaff staff = CourseStaff.builder().email(INSTRUCTOR_EMAIL).course(course).build();
+
+    assertTrue(CourseStaffService.isInstructorStaff(course, staff));
+  }
+
+  @Test
+  public void isInstructorStaff_false_whenStaffEmailIsDifferent() {
+    Course course = Course.builder().id(1L).instructorEmail(INSTRUCTOR_EMAIL).build();
+    CourseStaff staff = CourseStaff.builder().email("ta@ucsb.edu").course(course).build();
+
+    assertFalse(CourseStaffService.isInstructorStaff(course, staff));
+  }
+
+  @Test
+  public void isInstructorStaff_false_whenCourseHasNoInstructorEmail() {
+    // even a staff row with no email is not the instructor of a course with no instructor email
+    Course course = Course.builder().id(1L).instructorEmail(null).build();
+    CourseStaff staff = CourseStaff.builder().email(null).course(course).build();
+
+    assertFalse(CourseStaffService.isInstructorStaff(course, staff));
   }
 }

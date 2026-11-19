@@ -429,6 +429,76 @@ describe("InstructorCourseShowPage tests", () => {
       ),
     ).toBeInTheDocument();
   });
+  test("staff Delete buttons stay disabled until the course's details have loaded", async () => {
+    setupInstructorUser();
+    // the course's details arrive only when the test calls sendCourse()
+    let sendCourse;
+    axiosMock.onGet("/api/courses/7").reply(
+      () =>
+        new Promise((resolve) => {
+          sendCourse = () =>
+            resolve([
+              200,
+              {
+                ...coursesFixtures.oneCourseWithEachStatus[0],
+                instructorEmail:
+                  courseStaffFixtures.staffWithEachStatus[1].email,
+              },
+            ]);
+        }),
+    );
+    axiosMock
+      .onGet("/api/coursestaff/course?courseId=7")
+      .reply(200, courseStaffFixtures.staffWithEachStatus);
+    axiosMock.onGet("/api/courses/warnings/7").reply(200, {
+      showOrganizationAgeWarning: false,
+    });
+    axiosMock.onGet("/api/rosterstudents/course/7").reply(200, []);
+    axiosMock.onGet("/api/teams/all?courseId=7").reply(200, []);
+
+    render(
+      <QueryClientProvider client={queryClient}>
+        <MemoryRouter initialEntries={["/instructor/courses/7"]}>
+          <Routes>
+            <Route
+              path="/instructor/courses/:id"
+              element={<InstructorCourseShowPage />}
+            />
+          </Routes>
+        </MemoryRouter>
+      </QueryClientProvider>,
+    );
+
+    fireEvent.click(await screen.findByRole("tab", { name: "Staff" }));
+
+    // the staff list is here but the course isn't: every Delete button is disabled,
+    // including the one on the (not yet known) instructor's row
+    expect(
+      await screen.findByTestId(
+        "InstructorCourseShowPage-CourseStaffTable-cell-row-1-col-Delete-button",
+      ),
+    ).toBeDisabled();
+    expect(
+      screen.getByTestId(
+        "InstructorCourseShowPage-CourseStaffTable-cell-row-0-col-Delete-button",
+      ),
+    ).toBeDisabled();
+
+    await waitFor(() => expect(sendCourse).toBeDefined());
+    sendCourse();
+
+    expect(
+      await screen.findByTestId(
+        "InstructorCourseShowPage-CourseStaffTable-cell-row-1-col-Delete-instructor",
+      ),
+    ).toHaveTextContent("Instructor");
+    expect(
+      screen.getByTestId(
+        "InstructorCourseShowPage-CourseStaffTable-cell-row-0-col-Delete-button",
+      ),
+    ).toBeEnabled();
+  });
+
   test("staff tab shows Instructor instead of a Delete button for the course's instructor", async () => {
     setupInstructorUser();
     axiosMock.onGet("/api/courses/7").reply(200, {

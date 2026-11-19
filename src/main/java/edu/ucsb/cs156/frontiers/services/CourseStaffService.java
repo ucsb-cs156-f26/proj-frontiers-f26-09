@@ -20,6 +20,22 @@ public class CourseStaffService {
   @Autowired private UserRepository userRepository;
 
   /**
+   * Returns true if a staff member is the course's instructor, matched by email. A course with no
+   * instructor email has no instructor staff member.
+   *
+   * <p>This is static so that controllers get the real check even in tests where the
+   * CourseStaffService bean is mocked.
+   *
+   * @param course the course
+   * @param staff a staff member of that course
+   * @return true if the staff member's email is the course's instructor email
+   */
+  public static boolean isInstructorStaff(Course course, CourseStaff staff) {
+    String instructorEmail = course.getInstructorEmail();
+    return instructorEmail != null && instructorEmail.equals(staff.getEmail());
+  }
+
+  /**
    * Makes sure the instructor of a course is on that course's staff list. If the instructor is
    * already a staff member, nothing happens, so this is safe to call more than once.
    *

@@ -271,6 +271,7 @@ describe("CourseStaffTable tests", () => {
             staff={courseStaffFixtures.threeStaff}
             currentUser={currentUser}
             courseId={7}
+            courseLoaded={true}
           />
         </MemoryRouter>
       </QueryClientProvider>,
@@ -305,6 +306,7 @@ describe("CourseStaffTable tests", () => {
             currentUser={currentUser}
             courseId={7}
             instructorEmail={instructorEmail}
+            courseLoaded={true}
           />
         </MemoryRouter>
       </QueryClientProvider>,
@@ -334,10 +336,103 @@ describe("CourseStaffTable tests", () => {
       );
       expect(deleteButton).toHaveTextContent("Delete");
       expect(deleteButton).toHaveClass("btn-danger");
+      expect(deleteButton).toBeEnabled();
       expect(
         screen.queryByTestId(`${testId}-cell-row-${row}-col-Delete-instructor`),
       ).not.toBeInTheDocument();
     });
+  });
+
+  test("Delete buttons are disabled until the course has loaded", () => {
+    const currentUser = currentUserFixtures.adminUser;
+    const staff = courseStaffFixtures.threeStaff;
+    const renderTable = (props) => (
+      <QueryClientProvider client={queryClient}>
+        <MemoryRouter>
+          <CourseStaffTable
+            staff={staff}
+            currentUser={currentUser}
+            courseId={7}
+            {...props}
+          />
+        </MemoryRouter>
+      </QueryClientProvider>
+    );
+
+    // the staff list has loaded but the course (and so its instructor) hasn't
+    const { rerender } = render(renderTable({}));
+
+    [0, 1, 2].forEach((row) => {
+      expect(
+        screen.getByTestId(`${testId}-cell-row-${row}-col-Delete-button`),
+      ).toBeDisabled();
+    });
+    fireEvent.click(
+      screen.getByTestId(`${testId}-cell-row-0-col-Delete-button`),
+    );
+    expect(
+      screen.queryByTestId("CourseStaffDeleteModal"),
+    ).not.toBeInTheDocument();
+
+    // the course arrives: its instructor gets "Instructor", everyone else can be deleted
+    rerender(
+      renderTable({ courseLoaded: true, instructorEmail: staff[0].email }),
+    );
+
+    expect(
+      screen.getByTestId(`${testId}-cell-row-0-col-Delete-instructor`),
+    ).toHaveTextContent("Instructor");
+    [1, 2].forEach((row) => {
+      expect(
+        screen.getByTestId(`${testId}-cell-row-${row}-col-Delete-button`),
+      ).toBeEnabled();
+    });
+  });
+
+  test("closes an open Delete window if its staff member becomes the instructor", async () => {
+    const currentUser = currentUserFixtures.adminUser;
+    const staff = courseStaffFixtures.threeStaff;
+    const renderTable = (props) => (
+      <QueryClientProvider client={queryClient}>
+        <MemoryRouter>
+          <CourseStaffTable
+            staff={staff}
+            currentUser={currentUser}
+            courseId={7}
+            courseLoaded={true}
+            {...props}
+          />
+        </MemoryRouter>
+      </QueryClientProvider>
+    );
+    axiosMock.onDelete("/api/coursestaff/delete").reply(200);
+
+    const { rerender } = render(
+      renderTable({ instructorEmail: staff[0].email }),
+    );
+
+    fireEvent.click(
+      screen.getByTestId(`${testId}-cell-row-1-col-Delete-button`),
+    );
+    await screen.findByTestId("CourseStaffDeleteModal");
+    expect(mockToast).not.toHaveBeenCalled();
+
+    // while the window is open, the staff member in row 1 becomes the instructor
+    rerender(renderTable({ instructorEmail: staff[1].email }));
+
+    await waitFor(() =>
+      expect(
+        screen.queryByTestId("CourseStaffDeleteModal"),
+      ).not.toBeInTheDocument(),
+    );
+    expect(mockToast).toHaveBeenCalledTimes(1);
+    expect(mockToast).toHaveBeenCalledWith(
+      "You cannot delete the instructor as a staff member.",
+    );
+    expect(
+      screen.getByTestId(`${testId}-cell-row-1-col-Delete-instructor`),
+    ).toHaveTextContent("Instructor");
+    expect(axiosMock.history.delete.length).toBe(0);
   });
 
   test("shows a Delete button on every row when instructorEmail is not given", () => {

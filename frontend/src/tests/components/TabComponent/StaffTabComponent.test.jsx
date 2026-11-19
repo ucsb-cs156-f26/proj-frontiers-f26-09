@@ -124,6 +124,35 @@ describe("StaffTabComponent Tests", () => {
     ).toBeInTheDocument();
   });
 
+  test("StaffTabComponent keeps Delete buttons disabled until courseLoaded is true", async () => {
+    axiosMock
+      .onGet("/api/coursestaff/course?courseId=1")
+      .reply(200, courseStaffFixtures.threeStaff);
+    const rsTestId = "InstructorCourseShowPage-CourseStaffTable";
+    const renderTab = (props) => (
+      <QueryClientProvider client={queryClient}>
+        <StaffTabComponent
+          courseId={1}
+          testIdPrefix={testId}
+          currentUser={currentUserFixtures.instructorUser}
+          {...props}
+        />
+      </QueryClientProvider>
+    );
+
+    const { rerender } = render(renderTab({}));
+
+    expect(
+      await screen.findByTestId(`${rsTestId}-cell-row-0-col-Delete-button`),
+    ).toBeDisabled();
+
+    rerender(renderTab({ courseLoaded: true }));
+
+    expect(
+      screen.getByTestId(`${rsTestId}-cell-row-0-col-Delete-button`),
+    ).toBeEnabled();
+  });
+
   test("StaffTabComponent hides staff management controls when not instructor", async () => {
     axiosMock
       .onGet("/api/coursestaff/course?courseId=1")

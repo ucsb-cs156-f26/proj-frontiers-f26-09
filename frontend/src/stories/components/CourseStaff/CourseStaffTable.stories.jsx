@@ -34,6 +34,15 @@ ThreeItemsAdminUser.args = {
   staff: courseStaffFixtures.threeStaff,
   currentUser: currentUserFixtures.adminUser,
   courseId: "1",
+  courseLoaded: true,
+};
+
+export const ThreeItemsCourseStillLoading = Template.bind({});
+ThreeItemsCourseStillLoading.args = {
+  staff: courseStaffFixtures.threeStaff,
+  currentUser: currentUserFixtures.adminUser,
+  courseId: "1",
+  courseLoaded: false,
 };
 
 ThreeItemsAdminUser.parameters = {
@@ -62,6 +71,7 @@ ThreeItemsWithInstructorRow.args = {
   currentUser: currentUserFixtures.adminUser,
   courseId: "1",
   instructorEmail: courseStaffFixtures.threeStaff[0].email,
+  courseLoaded: true,
 };
 ThreeItemsWithInstructorRow.parameters = ThreeItemsAdminUser.parameters;
 
@@ -69,6 +79,7 @@ export const ItemWithEachStatusAdminUser = Template.bind({});
 ItemWithEachStatusAdminUser.args = {
   staff: courseStaffFixtures.staffWithEachStatus,
   currentUser: currentUserFixtures.adminUser,
+  courseLoaded: true,
 };
 
 ItemWithEachStatusAdminUser.parameters = {

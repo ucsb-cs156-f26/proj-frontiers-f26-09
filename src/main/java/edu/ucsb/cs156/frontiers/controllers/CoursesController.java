@@ -507,13 +507,22 @@ public class CoursesController extends ApiController {
             .findById(courseId)
             .orElseThrow(() -> new EntityNotFoundException(Course.class, courseId));
 
+    // The instructor's own staff row doesn't count as staff here: the instructor can't be
+    // removed from the staff list, so that row is deleted together with the course.
+    List<CourseStaff> instructorStaff =
+        course.getCourseStaff().stream()
+            .filter(staff -> CourseStaffService.isInstructorStaff(course, staff))
+            .toList();
+    boolean hasOtherStaff = course.getCourseStaff().size() > instructorStaff.size();
+
     // Check if course has roster students or staff
-    if (!course.getRosterStudents().isEmpty() || !course.getCourseStaff().isEmpty()) {
+    if (!course.getRosterStudents().isEmpty() || hasOtherStaff) {
       throw new IllegalArgumentException("Cannot delete course with students or staff");
     }
 
     linkerService.unenrollOrganization(course);
     jobsRepository.deleteByScopeTypeAndScopeId("course", courseId);
+    courseStaffRepository.deleteAll(instructorStaff);
     courseRepository.delete(course);
     return genericMessage("Course with id %s deleted".formatted(course.getId()));
   }

@@ -1151,6 +1151,93 @@ public class CoursesControllerTests extends ControllerTestCase {
   }
 
   @Test
+  @WithMockUser(roles = {"ADMIN"})
+  public void delete_course_whose_only_staff_is_the_instructor_deletes_course_and_staff_row()
+      throws Exception {
+    CourseStaff instructorStaff = CourseStaff.builder().id(5L).email("instructor@ucsb.edu").build();
+    Course course =
+        Course.builder()
+            .id(1L)
+            .instructorEmail("instructor@ucsb.edu")
+            .rosterStudents(Collections.emptyList())
+            .courseStaff(List.of(instructorStaff))
+            .build();
+    when(courseRepository.findById(eq(1L))).thenReturn(Optional.of(course));
+
+    MvcResult response =
+        mockMvc
+            .perform(delete("/api/courses").param("courseId", "1").with(csrf()))
+            .andExpect(status().isOk())
+            .andReturn();
+
+    verify(linkerService).unenrollOrganization(eq(course));
+    verify(jobsRepository).deleteByScopeTypeAndScopeId(eq("course"), eq(1L));
+    verify(courseStaffRepository).deleteAll(eq(List.of(instructorStaff)));
+    verify(courseRepository).delete(eq(course));
+    String expectedJson = mapper.writeValueAsString(Map.of("message", "Course with id 1 deleted"));
+    assertEquals(expectedJson, response.getResponse().getContentAsString());
+  }
+
+  @Test
+  @WithMockUser(roles = {"ADMIN"})
+  public void delete_course_with_instructor_and_other_staff_throws_illegal_argument()
+      throws Exception {
+    CourseStaff instructorStaff = CourseStaff.builder().id(5L).email("instructor@ucsb.edu").build();
+    CourseStaff otherStaff = CourseStaff.builder().id(6L).email("ta@ucsb.edu").build();
+    Course course =
+        Course.builder()
+            .id(1L)
+            .instructorEmail("instructor@ucsb.edu")
+            .rosterStudents(Collections.emptyList())
+            .courseStaff(List.of(instructorStaff, otherStaff))
+            .build();
+    when(courseRepository.findById(eq(1L))).thenReturn(Optional.of(course));
+
+    MvcResult response =
+        mockMvc
+            .perform(delete("/api/courses").param("courseId", "1").with(csrf()))
+            .andExpect(status().isBadRequest())
+            .andReturn();
+
+    verify(courseRepository).findById(eq(1L));
+    verifyNoMoreInteractions(
+        courseRepository, linkerService, rosterStudentRepository, jobsRepository);
+    verify(courseStaffRepository, never()).deleteAll(any());
+
+    Map<String, String> expectedMap =
+        Map.of(
+            "type", "IllegalArgumentException",
+            "message", "Cannot delete course with students or staff");
+    assertEquals(
+        mapper.writeValueAsString(expectedMap), response.getResponse().getContentAsString());
+  }
+
+  @Test
+  @WithMockUser(roles = {"ADMIN"})
+  public void delete_course_with_students_and_only_instructor_staff_throws_illegal_argument()
+      throws Exception {
+    RosterStudent student = RosterStudent.builder().id(1L).build();
+    CourseStaff instructorStaff = CourseStaff.builder().id(5L).email("instructor@ucsb.edu").build();
+    Course course =
+        Course.builder()
+            .id(1L)
+            .instructorEmail("instructor@ucsb.edu")
+            .rosterStudents(List.of(student))
+            .courseStaff(List.of(instructorStaff))
+            .build();
+    when(courseRepository.findById(eq(1L))).thenReturn(Optional.of(course));
+
+    mockMvc
+        .perform(delete("/api/courses").param("courseId", "1").with(csrf()))
+        .andExpect(status().isBadRequest());
+
+    verify(courseRepository).findById(eq(1L));
+    verifyNoMoreInteractions(
+        courseRepository, linkerService, rosterStudentRepository, jobsRepository);
+    verify(courseStaffRepository, never()).deleteAll(any());
+  }
+
+  @Test
   @WithMockUser(roles = {"USER"})
   public void delete_course_non_admin_returns_forbidden() throws Exception {
     mockMvc
