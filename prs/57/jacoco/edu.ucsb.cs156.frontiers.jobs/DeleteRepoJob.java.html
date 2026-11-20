@@ -1,0 +1,119 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>DeleteRepoJob.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">frontiers</a> &gt; <a href="index.source.html" class="el_package">edu.ucsb.cs156.frontiers.jobs</a> &gt; <span class="el_source">DeleteRepoJob.java</span></div><h1>DeleteRepoJob.java</h1><pre class="source lang-java linenums">package edu.ucsb.cs156.frontiers.jobs;
+
+import edu.ucsb.cs156.frontiers.entities.Course;
+import edu.ucsb.cs156.frontiers.repositories.CourseRepository;
+import edu.ucsb.cs156.frontiers.services.RepositoryService;
+import edu.ucsb.cs156.frontiers.services.RepositoryService.GithubRepository;
+import edu.ucsb.cs156.jobs.services.JobContext;
+import edu.ucsb.cs156.jobs.services.JobContextConsumer;
+import java.util.List;
+import java.util.Optional;
+import lombok.Builder;
+
+/**
+ * Deletes the empty repositories (those with no commits) in a course's GitHub organization whose
+ * names start with a given prefix, so that repositories created by mistake (for example, with a
+ * typo in the prefix) can be cleaned up. A repository that has any commits is never deleted.
+ */
+@Builder
+public class DeleteRepoJob implements JobContextConsumer {
+
+  /**
+   * Milliseconds to wait between repositories. Each repository takes a GitHub request to check it
+   * for commits, and maybe one to delete it; GitHub asks integrations that make many such requests
+   * to wait at least a second between them, to stay under its secondary rate limits.
+   */
+  public static final long DELAY_BETWEEN_REPOS_MILLIS = 1000;
+
+  /** Waits for the given number of milliseconds; replaceable so that tests do not really wait. */
+  @FunctionalInterface
+  public interface Sleeper {
+    void sleep(long milliseconds) throws InterruptedException;
+  }
+
+  Long courseId;
+  String prefix;
+  CourseRepository courseRepository;
+  RepositoryService repositoryService;
+  @Builder.Default Sleeper sleeper = Thread::sleep;
+
+  @Override
+  public String getScopeType() {
+<span class="fc" id="L42">    return &quot;course&quot;;</span>
+  }
+
+  @Override
+  public Long getScopeId() {
+<span class="fc" id="L47">    return courseId;</span>
+  }
+
+  @Override
+  public void accept(JobContext ctx) throws Exception {
+<span class="fc" id="L52">    ctx.log(String.format(&quot;Starting delete repository job for course ID: %s&quot;, courseId));</span>
+<span class="fc" id="L53">    ctx.log(String.format(&quot;prefix=%s&quot;, prefix));</span>
+
+<span class="fc" id="L55">    Optional&lt;Course&gt; courseOpt = courseRepository.findById(courseId);</span>
+<span class="fc bfc" id="L56" title="All 2 branches covered.">    if (courseOpt.isEmpty()) {</span>
+<span class="fc" id="L57">      ctx.log(String.format(&quot;ERROR: Course with ID %s not found&quot;, courseId));</span>
+<span class="fc" id="L58">      return;</span>
+    }
+
+<span class="fc" id="L61">    Course course = courseOpt.get();</span>
+<span class="fc bfc" id="L62" title="All 4 branches covered.">    if (course.getOrgName() == null || course.getInstallationId() == null) {</span>
+<span class="fc" id="L63">      ctx.log(&quot;ERROR: Course has no linked GitHub organization&quot;);</span>
+<span class="fc" id="L64">      return;</span>
+    }
+
+    List&lt;GithubRepository&gt; repositories;
+<span class="fc" id="L68">    int errors = 0;</span>
+    try {
+<span class="fc" id="L70">      repositories = repositoryService.getRepositoriesMatchingPrefix(course, prefix);</span>
+<span class="fc" id="L71">    } catch (Exception e) {</span>
+<span class="fc" id="L72">      ctx.log(String.format(&quot;ERROR: Failed to list repositories: %s&quot;, e.getMessage()));</span>
+<span class="fc" id="L73">      errors++;</span>
+<span class="fc" id="L74">      ctx.log(String.format(&quot;Summary: found=0, deleted=0, retained=0, errors=%d&quot;, errors));</span>
+<span class="fc" id="L75">      return;</span>
+<span class="fc" id="L76">    }</span>
+
+<span class="fc" id="L78">    ctx.log(String.format(&quot;%d repos found with prefix %s&quot;, repositories.size(), prefix));</span>
+
+<span class="fc" id="L80">    int deleted = 0;</span>
+<span class="fc" id="L81">    int retained = 0;</span>
+<span class="fc" id="L82">    boolean firstRepository = true;</span>
+
+<span class="fc bfc" id="L84" title="All 2 branches covered.">    for (GithubRepository repository : repositories) {</span>
+<span class="fc bfc" id="L85" title="All 2 branches covered.">      if (!firstRepository) {</span>
+<span class="fc" id="L86">        sleeper.sleep(DELAY_BETWEEN_REPOS_MILLIS);</span>
+      }
+<span class="fc" id="L88">      firstRepository = false;</span>
+
+      // Only the GitHub call is in the try: ctx.log() is a cancellation checkpoint, and the
+      // exception it throws when the job is cancelled must not be caught and counted as a repo
+      // error.
+      boolean deletedRepository;
+      try {
+<span class="fc" id="L95">        deletedRepository = repositoryService.deleteRepositoryIfEmpty(course, repository.name());</span>
+<span class="fc" id="L96">      } catch (Exception e) {</span>
+<span class="fc" id="L97">        errors++;</span>
+<span class="fc" id="L98">        ctx.log(</span>
+<span class="fc" id="L99">            String.format(</span>
+                &quot;ERROR: Failed to delete/check repository %s: %s&quot;,
+<span class="fc" id="L101">                repository.name(), e.getMessage()));</span>
+<span class="fc" id="L102">        continue;</span>
+<span class="fc" id="L103">      }</span>
+<span class="fc bfc" id="L104" title="All 2 branches covered.">      if (deletedRepository) {</span>
+<span class="fc" id="L105">        deleted++;</span>
+<span class="fc" id="L106">        ctx.log(String.format(&quot;Deleted empty repository: %s&quot;, repository.name()));</span>
+      } else {
+<span class="fc" id="L108">        retained++;</span>
+<span class="fc" id="L109">        ctx.log(String.format(&quot;Repo %s not deleted; commits exist.&quot;, repository.name()));</span>
+      }
+<span class="fc" id="L111">    }</span>
+
+<span class="fc" id="L113">    ctx.log(String.format(&quot;%d repos deleted&quot;, deleted));</span>
+<span class="fc" id="L114">    ctx.log(String.format(&quot;%d repos retained&quot;, retained));</span>
+<span class="fc" id="L115">    ctx.log(String.format(&quot;%d errors&quot;, errors));</span>
+<span class="fc" id="L116">    ctx.log(&quot;Done&quot;);</span>
+<span class="fc" id="L117">  }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.15.202606040825</span></div></body></html>
