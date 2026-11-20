@@ -12,5 +12,6 @@ const Template = (args) => {
 
 export const Default = Template.bind({});
 Default.args = {
+  courseId: 1,
   testIdPrefix: "CATMETabComponent",
 };
