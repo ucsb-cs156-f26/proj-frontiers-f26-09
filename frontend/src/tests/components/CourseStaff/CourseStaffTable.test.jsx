@@ -293,6 +293,78 @@ describe("CourseStaffTable tests", () => {
     expect(mockToast).toBeCalledWith("Staff member deleted successfully.");
   });
 
+  test("shows Instructor instead of a Delete button on the instructor's row", () => {
+    const currentUser = currentUserFixtures.adminUser;
+    const instructorEmail = courseStaffFixtures.threeStaff[1].email;
+
+    render(
+      <QueryClientProvider client={queryClient}>
+        <MemoryRouter>
+          <CourseStaffTable
+            staff={courseStaffFixtures.threeStaff}
+            currentUser={currentUser}
+            courseId={7}
+            instructorEmail={instructorEmail}
+          />
+        </MemoryRouter>
+      </QueryClientProvider>,
+    );
+
+    expect(screen.getByTestId(`${testId}-header-Delete`)).toHaveTextContent(
+      "Delete",
+    );
+
+    // row 1 is the instructor: "Instructor" text, no Delete button
+    expect(
+      screen.getByTestId(`${testId}-cell-row-1-col-Delete-instructor`),
+    ).toHaveTextContent("Instructor");
+    expect(
+      screen.queryByTestId(`${testId}-cell-row-1-col-Delete-button`),
+    ).not.toBeInTheDocument();
+
+    // the instructor can still be edited
+    expect(
+      screen.getByTestId(`${testId}-cell-row-1-col-Edit-button`),
+    ).toBeInTheDocument();
+
+    // everyone else keeps their Delete button
+    [0, 2].forEach((row) => {
+      const deleteButton = screen.getByTestId(
+        `${testId}-cell-row-${row}-col-Delete-button`,
+      );
+      expect(deleteButton).toHaveTextContent("Delete");
+      expect(deleteButton).toHaveClass("btn-danger");
+      expect(
+        screen.queryByTestId(`${testId}-cell-row-${row}-col-Delete-instructor`),
+      ).not.toBeInTheDocument();
+    });
+  });
+
+  test("shows a Delete button on every row when instructorEmail is not given", () => {
+    const currentUser = currentUserFixtures.adminUser;
+
+    render(
+      <QueryClientProvider client={queryClient}>
+        <MemoryRouter>
+          <CourseStaffTable
+            staff={courseStaffFixtures.threeStaff}
+            currentUser={currentUser}
+            courseId={7}
+          />
+        </MemoryRouter>
+      </QueryClientProvider>,
+    );
+
+    [0, 1, 2].forEach((row) => {
+      expect(
+        screen.getByTestId(`${testId}-cell-row-${row}-col-Delete-button`),
+      ).toBeInTheDocument();
+      expect(
+        screen.queryByTestId(`${testId}-cell-row-${row}-col-Delete-instructor`),
+      ).not.toBeInTheDocument();
+    });
+  });
+
   test("tooltips for PENDING status", async () => {
     const currentUser = currentUserFixtures.adminUser;
     render(
