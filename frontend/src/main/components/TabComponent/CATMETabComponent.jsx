@@ -1,6 +1,7 @@
 import React from "react";
 import { Button } from "react-bootstrap";
 import { toast } from "react-toastify";
+import CATMEAuditCard from "main/components/CATME/CATMEAuditCard";
 
 export default function CATMETabComponent({ courseId, testIdPrefix }) {
   const onSuccessDownloadTriggered = () => {
@@ -28,6 +29,7 @@ export default function CATMETabComponent({ courseId, testIdPrefix }) {
       >
         Download CSV Roster in CATME format
       </Button>
+      <CATMEAuditCard courseId={courseId} testIdPrefix={testIdPrefix} />
     </div>
   );
 }
