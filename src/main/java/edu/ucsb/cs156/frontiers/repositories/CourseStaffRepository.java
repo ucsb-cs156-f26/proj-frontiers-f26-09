@@ -32,5 +32,15 @@ public interface CourseStaffRepository extends JpaRepository<CourseStaff, Long> 
    */
   Optional<CourseStaff> findByEmailAndCourse(String email, Course course);
 
+  /**
+   * This method checks whether a course has at least one staff member with a given email. Unlike
+   * findByEmailAndCourse, it is safe to call when duplicate rows exist.
+   *
+   * @param email email address of the course staff
+   * @param course the course associated with the course staff
+   * @return true if at least one matching CourseStaff exists
+   */
+  boolean existsByEmailAndCourse(String email, Course course);
+
   Optional<CourseStaff> findByCourseAndGithubLogin(Course course, String githubLogin);
 }

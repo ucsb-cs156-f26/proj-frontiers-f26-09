@@ -33,6 +33,7 @@ import edu.ucsb.cs156.frontiers.repositories.InstructorRepository;
 import edu.ucsb.cs156.frontiers.repositories.RosterStudentRepository;
 import edu.ucsb.cs156.frontiers.repositories.UserRepository;
 import edu.ucsb.cs156.frontiers.services.CanvasApiTokenSecurityService;
+import edu.ucsb.cs156.frontiers.services.CourseStaffService;
 import edu.ucsb.cs156.frontiers.services.CurrentUserService;
 import edu.ucsb.cs156.frontiers.services.OrganizationLinkerService;
 import edu.ucsb.cs156.jobs.repositories.JobsRepository;
@@ -88,6 +89,8 @@ public class CoursesControllerTests extends ControllerTestCase {
 
   @MockitoBean private JobsRepository jobsRepository;
 
+  @MockitoBean private CourseStaffService courseStaffService;
+
   /** Test that ROLE_ADMIN can create a course */
   @Test
   @WithMockUser(roles = {"ADMIN"})
@@ -126,6 +129,7 @@ public class CoursesControllerTests extends ControllerTestCase {
     // assert
 
     verify(courseRepository, times(1)).save(eq(course));
+    verify(courseStaffService, times(1)).ensureInstructorIsStaff(eq(course));
 
     String responseString = response.getResponse().getContentAsString();
     String expectedJson = mapper.writeValueAsString(new InstructorCourseView(course));
@@ -170,6 +174,7 @@ public class CoursesControllerTests extends ControllerTestCase {
     // assert
 
     verify(courseRepository, times(1)).save(eq(course));
+    verify(courseStaffService, times(1)).ensureInstructorIsStaff(eq(course));
 
     String responseString = response.getResponse().getContentAsString();
     String expectedJson = mapper.writeValueAsString(new InstructorCourseView(course));
@@ -1179,6 +1184,7 @@ public class CoursesControllerTests extends ControllerTestCase {
 
     // assert
     verify(courseRepository, times(1)).findById(eq(1L));
+    verify(courseStaffService, never()).ensureInstructorIsStaff(any());
 
     String responseString = response.getResponse().getContentAsString();
     Map<String, String> expectedMap =
@@ -1234,6 +1240,10 @@ public class CoursesControllerTests extends ControllerTestCase {
     verify(courseRepository, times(1)).findById(eq(1L));
     verify(instructorRepository, times(1)).existsByEmail(eq("new-instructor@example.com"));
     verify(courseRepository, times(1)).save(any(Course.class));
+    // the new instructor is added as staff, and the old instructor's staff row is kept
+    verify(courseStaffService, times(1)).ensureInstructorIsStaff(eq(updatedCourse));
+    assertEquals("new-instructor@example.com", updatedCourse.getInstructorEmail());
+    verify(courseStaffRepository, never()).delete(any());
 
     String responseString = response.getResponse().getContentAsString();
     String expectedJson = mapper.writeValueAsString(new InstructorCourseView(updatedCourse));
@@ -1283,6 +1293,10 @@ public class CoursesControllerTests extends ControllerTestCase {
     verify(courseRepository, times(1)).findById(eq(1L));
     verify(instructorRepository, times(1)).existsByEmail(eq("new-instructor@example.com"));
     verify(courseRepository, times(1)).save(eq(updatedCourse));
+    // the new instructor is added as staff, and the old instructor's staff row is kept
+    verify(courseStaffService, times(1)).ensureInstructorIsStaff(eq(updatedCourse));
+    assertEquals("new-instructor@example.com", updatedCourse.getInstructorEmail());
+    verify(courseStaffRepository, never()).delete(any());
 
     String responseString = response.getResponse().getContentAsString();
     String expectedJson = mapper.writeValueAsString(new InstructorCourseView(updatedCourse));
@@ -1332,6 +1346,11 @@ public class CoursesControllerTests extends ControllerTestCase {
     verify(courseRepository, times(1)).findById(eq(1L));
     verify(instructorRepository, times(1)).existsByEmail(eq("new-instructor@example.com"));
     verify(courseRepository, times(1)).save(eq(updatedCourse));
+    // the new instructor (with the stripped email) is added as staff, and the old instructor's
+    // staff row is kept
+    verify(courseStaffService, times(1)).ensureInstructorIsStaff(eq(updatedCourse));
+    assertEquals("new-instructor@example.com", updatedCourse.getInstructorEmail());
+    verify(courseStaffRepository, never()).delete(any());
 
     String responseString = response.getResponse().getContentAsString();
     String expectedJson = mapper.writeValueAsString(new InstructorCourseView(updatedCourse));
@@ -1370,6 +1389,7 @@ public class CoursesControllerTests extends ControllerTestCase {
     verify(instructorRepository, times(1)).existsByEmail(eq("nonexistent@example.com"));
     verify(adminRepository, times(1)).existsByEmail(eq("nonexistent@example.com"));
     verify(courseRepository, never()).save(any(Course.class));
+    verify(courseStaffService, never()).ensureInstructorIsStaff(any());
   }
 
   /** Test that updateInstructorEmail requires ADMIN role */
@@ -1384,6 +1404,8 @@ public class CoursesControllerTests extends ControllerTestCase {
                 .param("courseId", "1")
                 .param("instructorEmail", "new-instructor@example.com"))
         .andExpect(status().isForbidden());
+
+    verify(courseStaffService, never()).ensureInstructorIsStaff(any());
   }
 
   @Test
