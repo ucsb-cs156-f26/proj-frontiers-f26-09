@@ -17,6 +17,7 @@ export const COURSE_TABS = [
   "slack",
   "api-keys",
   "edudora",
+  "catme",
   "settings",
 ];
 
