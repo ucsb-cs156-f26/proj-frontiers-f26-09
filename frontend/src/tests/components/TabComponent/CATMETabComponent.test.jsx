@@ -1,5 +1,6 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import CATMETabComponent from "main/components/TabComponent/CATMETabComponent";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { expect, vi } from "vitest";
 
 const mockToast = vi.fn();
@@ -11,6 +12,13 @@ vi.mock("react-toastify", async (importOriginal) => {
 });
 
 describe("CATMETabComponent tests", () => {
+  const renderTab = (ui) =>
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        {ui}
+      </QueryClientProvider>,
+    );
+
   const testIdPrefix = "InstructorCourseShowPage";
   let openSpy;
 
@@ -24,7 +32,7 @@ describe("CATMETabComponent tests", () => {
   });
 
   test("renders the tab container, the header and the download button", () => {
-    render(<CATMETabComponent courseId={1} testIdPrefix={testIdPrefix} />);
+    renderTab(<CATMETabComponent courseId={1} testIdPrefix={testIdPrefix} />);
 
     expect(
       screen.getByTestId(`${testIdPrefix}-catme-tab-component`),
@@ -43,7 +51,9 @@ describe("CATMETabComponent tests", () => {
   });
 
   test("uses the given testIdPrefix for all of its test ids", () => {
-    render(<CATMETabComponent courseId={1} testIdPrefix="SomeOtherPrefix" />);
+    renderTab(
+      <CATMETabComponent courseId={1} testIdPrefix="SomeOtherPrefix" />,
+    );
 
     expect(
       screen.getByTestId("SomeOtherPrefix-catme-tab-component"),
@@ -57,14 +67,14 @@ describe("CATMETabComponent tests", () => {
   });
 
   test("does not open a download or show a toast until the button is clicked", () => {
-    render(<CATMETabComponent courseId={1} testIdPrefix={testIdPrefix} />);
+    renderTab(<CATMETabComponent courseId={1} testIdPrefix={testIdPrefix} />);
 
     expect(openSpy).not.toHaveBeenCalled();
     expect(mockToast).not.toHaveBeenCalled();
   });
 
   test("clicking the button opens the CATME csv for this course in a new tab", () => {
-    render(<CATMETabComponent courseId={7} testIdPrefix={testIdPrefix} />);
+    renderTab(<CATMETabComponent courseId={7} testIdPrefix={testIdPrefix} />);
 
     fireEvent.click(
       screen.getByTestId(`${testIdPrefix}-btn-catme-formatted-teams-csv`),
@@ -77,7 +87,7 @@ describe("CATMETabComponent tests", () => {
   });
 
   test("clicking the button shows the download toast exactly once", () => {
-    render(<CATMETabComponent courseId={7} testIdPrefix={testIdPrefix} />);
+    renderTab(<CATMETabComponent courseId={7} testIdPrefix={testIdPrefix} />);
 
     fireEvent.click(
       screen.getByTestId(`${testIdPrefix}-btn-catme-formatted-teams-csv`),
@@ -88,7 +98,7 @@ describe("CATMETabComponent tests", () => {
   });
 
   test("each click opens a download and shows a toast", () => {
-    render(<CATMETabComponent courseId={3} testIdPrefix={testIdPrefix} />);
+    renderTab(<CATMETabComponent courseId={3} testIdPrefix={testIdPrefix} />);
     const button = screen.getByTestId(
       `${testIdPrefix}-btn-catme-formatted-teams-csv`,
     );
@@ -103,5 +113,16 @@ describe("CATMETabComponent tests", () => {
       "_blank",
     );
     expect(mockToast).toHaveBeenCalledTimes(2);
+  });
+
+  test("includes the audit card for this course", () => {
+    renderTab(<CATMETabComponent courseId={7} testIdPrefix={testIdPrefix} />);
+
+    expect(
+      screen.getByTestId(`${testIdPrefix}-catme-audit-card`),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByTestId(`${testIdPrefix}-catme-audit-header`),
+    ).toHaveTextContent("Audit CATME Teammaker CSV Download");
   });
 });
