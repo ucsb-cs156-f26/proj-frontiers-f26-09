@@ -24,6 +24,7 @@ import SlackTabComponent from "main/components/TabComponent/SlackTabComponent";
 import DokkuTabComponent from "main/components/TabComponent/DokkuTabComponent";
 import ApiKeysTabComponent from "main/components/TabComponent/ApiKeysTabComponent";
 import EduDoraTabComponent from "main/components/TabComponent/EduDoraTabComponent";
+import CATMETabComponent from "main/components/TabComponent/CATMETabComponent";
 import { slackInfoQueryKey } from "main/utils/slackUtils";
 import {
   COURSE_TABS,
@@ -90,6 +91,10 @@ export default function InstructorCourseShowPage({
   // enabled.
   const showEduDoraTab = courseOptions.ENABLE_EDUDORA === true;
 
+  // The CATME tab is only shown when the ENABLE_CATME course option is
+  // enabled.
+  const showCATMETab = courseOptions.ENABLE_CATME === true;
+
   // The Slack tab is only shown when the SLACK_INTEGRATION course option is
   // enabled and a Slack token has been saved. The query key is shared with the
   // Slack card on the Settings tab, so saving a token there shows the tab.
@@ -117,6 +122,7 @@ export default function InstructorCourseShowPage({
       (tab !== "slack" || showSlackTab) &&
       (tab !== "api-keys" || showApiKeysTab) &&
       (tab !== "edudora" || showEduDoraTab) &&
+      (tab !== "catme" || showCATMETab) &&
       (tab !== "settings" || showSettingsTab),
   );
   const activeTab = chooseCourseTab({
@@ -330,6 +336,11 @@ export default function InstructorCourseShowPage({
         {showEduDoraTab && (
           <Tab eventKey={"edudora"} title={"EduDora"} className="pt-2">
             <EduDoraTabComponent testIdPrefix={testId} />
+          </Tab>
+        )}
+        {showCATMETab && (
+          <Tab eventKey={"catme"} title={"CATME"} className="pt-2">
+            <CATMETabComponent courseId={courseId} testIdPrefix={testId} />
           </Tab>
         )}
         {showSettingsTab && (
