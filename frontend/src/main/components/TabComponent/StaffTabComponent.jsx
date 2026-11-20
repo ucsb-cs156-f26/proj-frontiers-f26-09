@@ -81,9 +81,16 @@ export default function StaffTabComponent({
     {
       onSuccess: () => onSuccessStaff(setCsvModal),
       onError: (error) => {
-        toast.error(
-          `Error uploading CSV: ${JSON.stringify(error.response.data, null, 2)}`,
-        );
+        if (error.response.status === 409) {
+          const { count, rejected } = error.response.data;
+          toast.error(
+            `Added ${count} staff member(s). These emails were not added because they are already staff in this course or appear more than once in the file: ${rejected.join(", ")}`,
+          );
+        } else {
+          toast.error(
+            `Error uploading CSV: ${JSON.stringify(error.response.data, null, 2)}`,
+          );
+        }
         setCsvModal(false);
       },
     },

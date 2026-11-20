@@ -33,4 +33,14 @@ public interface CourseStaffRepository extends JpaRepository<CourseStaff, Long> 
   Optional<CourseStaff> findByEmailAndCourse(String email, Course course);
 
   Optional<CourseStaff> findByCourseAndGithubLogin(Course course, String githubLogin);
+
+  /**
+   * This method returns whether a course already has a staff member with a given email, ignoring
+   * the difference between upper and lower case letters.
+   *
+   * @param course the course
+   * @param email email address to look for
+   * @return true if the course has a staff member with that email in any letter case
+   */
+  boolean existsByCourseAndEmailIgnoreCase(Course course, String email);
 }
