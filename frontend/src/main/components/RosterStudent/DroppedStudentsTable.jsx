@@ -83,7 +83,10 @@ export default function DroppedStudentsTable({
   const deleteMutation = useBackendMutation(
     cellToAxiosParamsDelete,
     { onSuccess: onDeleteSuccess },
-    [`/api/rosterstudents/course/${courseId}`],
+    [
+      `/api/rosterstudents/course/${courseId}`,
+      `/api/teams/all?courseId=${courseId}`,
+    ],
   );
 
   const deleteCallback = (cell) => {

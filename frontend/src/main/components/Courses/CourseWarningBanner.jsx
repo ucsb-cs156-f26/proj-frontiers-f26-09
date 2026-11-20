@@ -31,10 +31,33 @@ export function CourseWarningBanner({
     },
   );
 
+  // Dismissing the default base permission warning is remembered on the course
+  // (so it stays dismissed on reload); this local flag hides it immediately,
+  // without waiting for the course to be refetched.
+  const [basePermissionWarningDismissed, setBasePermissionWarningDismissed] =
+    useState(false);
+
+  const objectToAxiosParamsHideBasePermissionWarning = () => ({
+    url: `/api/courses/warnings/hideBasePermissionWarning/${courseId}`,
+    method: "POST",
+  });
+
+  const onSuccessHideBasePermissionWarning = () => {
+    setBasePermissionWarningDismissed(true);
+    toast("Default base permission warning dismissed for this course");
+  };
+
+  const hideBasePermissionWarningMutation = useBackendMutation(
+    objectToAxiosParamsHideBasePermissionWarning,
+    { onSuccess: onSuccessHideBasePermissionWarning },
+    [`/api/courses/${courseId}`],
+  );
+
   const showDefaultBasePermissionWarning =
     warnings?.showDefaultBasePermissions &&
     orgName &&
-    !hideBasePermissionWarning;
+    !hideBasePermissionWarning &&
+    !basePermissionWarningDismissed;
 
   const memberPrivilegesUrl = orgName
     ? `https://github.com/organizations/${orgName}/settings/member_privileges`
@@ -92,6 +115,15 @@ export function CourseWarningBanner({
             You can change that setting here
           </a>
           .
+          <Button
+            size="sm"
+            variant="outline-secondary"
+            className="ms-2"
+            onClick={() => hideBasePermissionWarningMutation.mutate()}
+            data-testid="CourseWarningBanner-defaultBasePermission-dismiss"
+          >
+            Dismiss
+          </Button>
         </Alert>
       )}
       {showFreePlanWarning && (

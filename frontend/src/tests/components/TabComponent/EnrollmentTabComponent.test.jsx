@@ -186,6 +186,10 @@ describe("EnrollmentTabComponent Tests", () => {
         },
       },
     });
+    const invalidateQueriesSpy = vi.spyOn(
+      queryClientSpecific,
+      "invalidateQueries",
+    );
     const file = new File(["there"], "egrades.csv", { type: "text/csv" });
 
     axiosMock
@@ -240,6 +244,15 @@ describe("EnrollmentTabComponent Tests", () => {
     });
     expect(axiosMock.history.post[0].data.get("file")).toEqual(file);
     expect(toast).toBeCalledWith("Roster successfully updated.");
+    // a roster upload can drop students, which removes them from their teams
+    await waitFor(() => {
+      expect(invalidateQueriesSpy).toHaveBeenCalledWith({
+        queryKey: ["/api/rosterstudents/course/7"],
+      });
+    });
+    expect(invalidateQueriesSpy).toHaveBeenCalledWith({
+      queryKey: ["/api/teams/all?courseId=7"],
+    });
     expect(
       queryClientSpecific.getQueryState(["arbitraryQuery"]).dataUpdateCount,
     ).toBe(arbitraryUpdateCount);
@@ -1059,6 +1072,7 @@ describe("EnrollmentTabComponent Tests", () => {
   });
 
   test("purge flow sends DELETE with chosen option, toasts, and refetches", async () => {
+    const invalidateQueriesSpy = vi.spyOn(queryClient, "invalidateQueries");
     axiosMock
       .onGet("/api/rosterstudents/course/1")
       .reply(200, rosterStudentFixtures.fourStudentsOneDropped);
@@ -1115,6 +1129,14 @@ describe("EnrollmentTabComponent Tests", () => {
     // roster is refetched after the purge
     await waitFor(() => expect(axiosMock.history.get.length).toEqual(2));
     expect(axiosMock.history.get[1].url).toBe("/api/rosterstudents/course/1");
+    // purging deletes students, which removes them from their teams
+    expect(invalidateQueriesSpy).toHaveBeenCalledWith({
+      queryKey: ["/api/rosterstudents/course/1"],
+    });
+    expect(invalidateQueriesSpy).toHaveBeenCalledWith({
+      queryKey: ["/api/teams/all?courseId=1"],
+    });
+    invalidateQueriesSpy.mockRestore();
   });
 
   test("purge reports GitHub org removal errors", async () => {
@@ -1269,6 +1291,7 @@ describe("EnrollmentTabComponent Load Students from Canvas button", () => {
   });
 
   test("POSTs to the Canvas sync endpoint for the current course, then refreshes the roster and clears the search", async () => {
+    const invalidateQueriesSpy = vi.spyOn(queryClient, "invalidateQueries");
     axiosMock
       .onPost("/api/courses/canvas/sync/students")
       .reply(200, loadResultFixtures.successful);
@@ -1296,6 +1319,14 @@ describe("EnrollmentTabComponent Load Students from Canvas button", () => {
     expect(search).toHaveValue("");
     // the roster is fetched again, to show the students that were loaded
     await waitFor(() => expect(rosterRequests().length).toBe(2));
+    // a Canvas sync can drop students, which removes them from their teams
+    expect(invalidateQueriesSpy).toHaveBeenCalledWith({
+      queryKey: ["/api/rosterstudents/course/1"],
+    });
+    expect(invalidateQueriesSpy).toHaveBeenCalledWith({
+      queryKey: ["/api/teams/all?courseId=1"],
+    });
+    invalidateQueriesSpy.mockRestore();
   });
 
   test("asks for confirmation, explaining the consequences, before calling the backend", async () => {
