@@ -2,6 +2,7 @@ package edu.ucsb.cs156.frontiers.controllers;
 
 import edu.ucsb.cs156.frontiers.entities.User;
 import edu.ucsb.cs156.frontiers.repositories.UserRepository;
+import edu.ucsb.cs156.frontiers.services.UpdateUserService;
 import java.util.List;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
@@ -19,16 +20,19 @@ import org.springframework.web.bind.annotation.RestController;
 public class GithubController extends ApiController {
 
   private final UserRepository userRepository;
+  private final UpdateUserService updateUserService;
 
-  public GithubController(UserRepository userRepository) {
+  public GithubController(UserRepository userRepository, UpdateUserService updateUserService) {
     super();
     this.userRepository = userRepository;
+    this.updateUserService = updateUserService;
   }
 
   @PreAuthorize("hasRole('ROLE_GITHUB')")
   @DeleteMapping("/disconnect")
   public Object disconnect(SecurityContext context) {
     User currentUser = getCurrentUser().getUser();
+    updateUserService.resetPendingInvitations(currentUser);
     currentUser.setGithubId(null);
     currentUser.setGithubLogin(null);
     userRepository.save(currentUser);
