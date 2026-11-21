@@ -9,6 +9,7 @@ import static org.mockito.Mockito.*;
 import edu.ucsb.cs156.frontiers.entities.CourseStaff;
 import edu.ucsb.cs156.frontiers.entities.RosterStudent;
 import edu.ucsb.cs156.frontiers.entities.User;
+import edu.ucsb.cs156.frontiers.enums.OrgStatus;
 import edu.ucsb.cs156.frontiers.repositories.CourseStaffRepository;
 import edu.ucsb.cs156.frontiers.repositories.RosterStudentRepository;
 import edu.ucsb.cs156.frontiers.repositories.UserRepository;
@@ -210,5 +211,70 @@ public class UpdateUserServiceTests {
     verify(userRepository, times(1)).findByEmail(email);
     verify(rosterStudentRepository, times(1)).save(rosterStudent);
     assertEquals(rosterStudent.getUser(), user);
+  }
+
+  @Test
+  public void testResetPendingInvitations_resetsOnlyInvitedStudentsAndStaff() {
+    User user = User.builder().id(1L).email("test@example.com").build();
+
+    RosterStudent invitedStudent =
+        RosterStudent.builder()
+            .orgStatus(OrgStatus.INVITED)
+            .githubId(111)
+            .githubLogin("wrong-account")
+            .build();
+    RosterStudent memberStudent =
+        RosterStudent.builder()
+            .orgStatus(OrgStatus.MEMBER)
+            .githubId(222)
+            .githubLogin("member-account")
+            .build();
+    CourseStaff invitedStaff =
+        CourseStaff.builder()
+            .orgStatus(OrgStatus.INVITED)
+            .githubId(333)
+            .githubLogin("wrong-staff-account")
+            .build();
+    CourseStaff ownerStaff =
+        CourseStaff.builder()
+            .orgStatus(OrgStatus.OWNER)
+            .githubId(444)
+            .githubLogin("owner-account")
+            .build();
+
+    when(rosterStudentRepository.findAllByUser(user))
+        .thenReturn(List.of(invitedStudent, memberStudent));
+    when(courseStaffRepository.findAllByUser(user)).thenReturn(List.of(invitedStaff, ownerStaff));
+
+    updateUserService.resetPendingInvitations(user);
+
+    assertEquals(OrgStatus.JOINCOURSE, invitedStudent.getOrgStatus());
+    assertNull(invitedStudent.getGithubId());
+    assertNull(invitedStudent.getGithubLogin());
+    assertEquals(OrgStatus.MEMBER, memberStudent.getOrgStatus());
+    assertEquals(222, memberStudent.getGithubId());
+    assertEquals("member-account", memberStudent.getGithubLogin());
+
+    assertEquals(OrgStatus.JOINCOURSE, invitedStaff.getOrgStatus());
+    assertNull(invitedStaff.getGithubId());
+    assertNull(invitedStaff.getGithubLogin());
+    assertEquals(OrgStatus.OWNER, ownerStaff.getOrgStatus());
+    assertEquals(444, ownerStaff.getGithubId());
+    assertEquals("owner-account", ownerStaff.getGithubLogin());
+
+    verify(rosterStudentRepository).saveAll(List.of(invitedStudent));
+    verify(courseStaffRepository).saveAll(List.of(invitedStaff));
+  }
+
+  @Test
+  public void testResetPendingInvitations_nothingToReset() {
+    User user = User.builder().id(1L).email("test@example.com").build();
+    when(rosterStudentRepository.findAllByUser(user)).thenReturn(List.of());
+    when(courseStaffRepository.findAllByUser(user)).thenReturn(List.of());
+
+    updateUserService.resetPendingInvitations(user);
+
+    verify(rosterStudentRepository).saveAll(List.of());
+    verify(courseStaffRepository).saveAll(List.of());
   }
 }
