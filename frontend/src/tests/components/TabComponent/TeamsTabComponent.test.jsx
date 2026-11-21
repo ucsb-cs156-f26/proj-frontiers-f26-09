@@ -293,6 +293,10 @@ describe("TeamTabComponent tests", () => {
         },
       },
     });
+    const invalidateQueriesSpy = vi.spyOn(
+      queryClientSpecific,
+      "invalidateQueries",
+    );
     const file = new File(["there"], "egrades.csv", { type: "text/csv" });
 
     axiosMock
@@ -352,6 +356,15 @@ describe("TeamTabComponent tests", () => {
       queryClientSpecific.getQueryState(["/api/teams/all?courseId=1"])
         .dataUpdateCount,
     ).toEqual(updateTeamCount + 1);
+    // the Teams column on the Students tab comes from the roster query
+    await waitFor(() => {
+      expect(invalidateQueriesSpy).toHaveBeenCalledWith({
+        queryKey: ["/api/teams/all?courseId=1"],
+      });
+    });
+    expect(invalidateQueriesSpy).toHaveBeenCalledWith({
+      queryKey: ["/api/rosterstudents/course/1"],
+    });
 
     // Verify that the CSV modal closes
     await waitFor(() => {

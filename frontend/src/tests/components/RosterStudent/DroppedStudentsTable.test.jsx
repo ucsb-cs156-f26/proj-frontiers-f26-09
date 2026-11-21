@@ -134,6 +134,7 @@ describe("DroppedStudentsTable tests", () => {
       ["/api/rosterstudents/course/7"],
       rosterStudentFixtures.threeStudents,
     );
+    queryClientSpecific.setQueryData(["/api/teams/all?courseId=7"], []);
     queryClientSpecific.setQueryData(["mock queryData"], null);
     axiosMock.onDelete("/api/rosterstudents/delete").reply(200);
     render(
@@ -172,6 +173,11 @@ describe("DroppedStudentsTable tests", () => {
     );
     expect(
       queryClientSpecific.getQueryState(["/api/rosterstudents/course/7"])
+        .isInvalidated,
+    ).toBe(true);
+    // deleting a student also removes them from their teams
+    expect(
+      queryClientSpecific.getQueryState(["/api/teams/all?courseId=7"])
         .isInvalidated,
     ).toBe(true);
     expect(
@@ -220,6 +226,36 @@ describe("DroppedStudentsTable tests", () => {
         screen.getByTestId("DroppedStudentsTable-cell-row-0-col-section"),
       ).toHaveTextContent("0100"),
     );
+    expect(
+      screen.getByTestId("DroppedStudentsTable-cell-row-0-col-section"),
+    ).not.toHaveTextContent("Tue 9:00am");
+  });
+
+  test("defaults translateSections to false when the prop is not provided", async () => {
+    const queryClientSpecific = new QueryClient();
+    axiosMock
+      .onGet("/api/courses/7/sections")
+      .reply(200, sectionsFixtures.threeSections);
+
+    render(
+      <QueryClientProvider client={queryClientSpecific}>
+        <DroppedStudentsTable
+          students={rosterStudentFixtures.threeStudents}
+          courseId={7}
+        />
+      </QueryClientProvider>,
+    );
+
+    await waitFor(() =>
+      expect(
+        screen.getByTestId("DroppedStudentsTable-cell-row-0-col-section"),
+      ).toHaveTextContent("0100"),
+    );
+    // give a sections request time to finish, so a translation would have shown up by now
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    expect(
+      screen.getByTestId("DroppedStudentsTable-cell-row-0-col-section"),
+    ).toHaveTextContent("0100");
     expect(
       screen.getByTestId("DroppedStudentsTable-cell-row-0-col-section"),
     ).not.toHaveTextContent("Tue 9:00am");
