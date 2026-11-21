@@ -3,9 +3,11 @@ package edu.ucsb.cs156.frontiers.services;
 import edu.ucsb.cs156.frontiers.entities.CourseStaff;
 import edu.ucsb.cs156.frontiers.entities.RosterStudent;
 import edu.ucsb.cs156.frontiers.entities.User;
+import edu.ucsb.cs156.frontiers.enums.OrgStatus;
 import edu.ucsb.cs156.frontiers.repositories.CourseStaffRepository;
 import edu.ucsb.cs156.frontiers.repositories.RosterStudentRepository;
 import edu.ucsb.cs156.frontiers.repositories.UserRepository;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -81,5 +83,29 @@ public class UpdateUserService {
       courseStaff.setUser(matchedUser);
       courseStaffRepository.save(courseStaff);
     }
+  }
+
+  public void resetPendingInvitations(User user) {
+    List<RosterStudent> invitedStudents = new ArrayList<>();
+    for (RosterStudent student : rosterStudentRepository.findAllByUser(user)) {
+      if (student.getOrgStatus() == OrgStatus.INVITED) {
+        student.setOrgStatus(OrgStatus.JOINCOURSE);
+        student.setGithubId(null);
+        student.setGithubLogin(null);
+        invitedStudents.add(student);
+      }
+    }
+    rosterStudentRepository.saveAll(invitedStudents);
+
+    List<CourseStaff> invitedStaff = new ArrayList<>();
+    for (CourseStaff staff : courseStaffRepository.findAllByUser(user)) {
+      if (staff.getOrgStatus() == OrgStatus.INVITED) {
+        staff.setOrgStatus(OrgStatus.JOINCOURSE);
+        staff.setGithubId(null);
+        staff.setGithubLogin(null);
+        invitedStaff.add(staff);
+      }
+    }
+    courseStaffRepository.saveAll(invitedStaff);
   }
 }
