@@ -125,6 +125,14 @@ describe("ProfilePage tests", () => {
     expect(
       screen.getByText("Please only do so if you know what you're doing."),
     ).toBeInTheDocument();
+
+    expect(
+      screen.getByText(
+        /Any course invitations you have not yet accepted will be reset/,
+      ),
+    ).toBeInTheDocument();
+    const invalidateSpy = vi.spyOn(queryClient, "invalidateQueries");
+
     const fire = screen.getByText("Yes, I'd like to do this");
     const updateCount = queryClient.getQueryState([
       "current user",
@@ -139,6 +147,20 @@ describe("ProfilePage tests", () => {
       ).not.toBeInTheDocument(),
     );
     expect(axiosMock.history.delete.length).toBe(1);
+
+    await waitFor(() =>
+      expect(invalidateSpy).toHaveBeenCalledWith({
+        queryKey: ["/api/courses/list"],
+      }),
+    );
+    expect(invalidateSpy).toHaveBeenCalledWith({
+      queryKey: ["/api/courses/staffCourses"],
+    });
+    expect(invalidateSpy).toHaveBeenCalledWith({
+      queryKey: ["current user"],
+    });
+    invalidateSpy.mockRestore();
+
     expect(axiosMock.history.delete[0].url).toBe("/api/github/disconnect");
     expect(mockToast).toBeCalledWith(
       "Disconnected from GitHub. You may now log in with a different account.",
