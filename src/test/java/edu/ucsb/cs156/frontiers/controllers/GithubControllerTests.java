@@ -11,6 +11,7 @@ import edu.ucsb.cs156.frontiers.ControllerTestCase;
 import edu.ucsb.cs156.frontiers.entities.User;
 import edu.ucsb.cs156.frontiers.repositories.UserRepository;
 import edu.ucsb.cs156.frontiers.services.CurrentUserService;
+import edu.ucsb.cs156.frontiers.services.UpdateUserService;
 import java.util.*;
 import org.junit.jupiter.api.Test;
 import org.mockito.*;
@@ -24,7 +25,7 @@ import org.springframework.test.web.servlet.MvcResult;
 public class GithubControllerTests extends ControllerTestCase {
 
   @MockitoBean private UserRepository userRepository;
-
+  @MockitoBean private UpdateUserService updateUserService;
   @Autowired private CurrentUserService currentUserService;
 
   @Test
@@ -47,7 +48,7 @@ public class GithubControllerTests extends ControllerTestCase {
             .andReturn();
 
     verify(userRepository).save(userCaptor.capture());
-
+    verify(updateUserService).resetPendingInvitations(userCaptor.getValue());
     assertNull(userCaptor.getValue().getGithubId());
     assertNull(userCaptor.getValue().getGithubLogin());
 

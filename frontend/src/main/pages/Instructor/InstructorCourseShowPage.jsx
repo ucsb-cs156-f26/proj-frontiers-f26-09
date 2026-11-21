@@ -60,11 +60,16 @@ export default function InstructorCourseShowPage({
   // Which tabs there are depends on the course options, which anyone who can
   // manage the course can read. Staff (the view with no Settings tab) only get
   // the New Assignments tab so far, so for them every other option is treated
-  // as off.
+  // as off when deciding which tabs to show.
   const { data: allCourseOptions } = useCourseOptions(courseId);
   const courseOptions = showSettingsTab
     ? allCourseOptions
     : { NEW_ASSIGNMENT_FEATURES: allCourseOptions.NEW_ASSIGNMENT_FEATURES };
+
+  // When the TRANSLATE_SECTIONS course option is enabled, section values in the
+  // student lists are shown with their labels, for staff as well as for
+  // instructors.
+  const translateSections = allCourseOptions.TRANSLATE_SECTIONS === true;
 
   // The Sections tab is only shown when the TRANSLATE_SECTIONS course option
   // is enabled.
@@ -245,7 +250,7 @@ export default function InstructorCourseShowPage({
             testIdPrefix={testId}
             currentUser={currentUser}
             canEditStudents={canEditStudents}
-            translateSections={showSectionsTab}
+            translateSections={translateSections}
             canvasEnabled={courseOptions.ENABLE_CANVAS === true}
           />
         </Tab>
