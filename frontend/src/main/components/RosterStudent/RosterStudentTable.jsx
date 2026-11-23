@@ -85,7 +85,10 @@ export default function RosterStudentTable({
   const deleteMutation = useBackendMutation(
     cellToAxiosParamsDelete,
     { onSuccess: onDeleteSuccess },
-    [`/api/rosterstudents/course/${courseId}`],
+    [
+      `/api/rosterstudents/course/${courseId}`,
+      `/api/teams/all?courseId=${courseId}`,
+    ],
   );
 
   const deleteCallback = async (cell) => {

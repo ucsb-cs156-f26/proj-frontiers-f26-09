@@ -23,7 +23,7 @@ const ProfilePage = () => {
       };
     },
     { onSuccess: onSuccess },
-    ["current user"],
+    ["current user", "/api/courses/list", "/api/courses/staffCourses"],
   );
 
   const [viewModal, setViewModal] = useState(false);
@@ -43,6 +43,10 @@ const ProfilePage = () => {
       >
         <p>Are you sure you want to disconnect your Github account?</p>
         <p>Please only do so if you know what you&apos;re doing.</p>
+        <p>
+          Any course invitations you have not yet accepted will be reset, so
+          that you can join those courses again with a different GitHub account.
+        </p>
       </ConfirmationModal>
       <Row className="align-items-center profile-header mb-5 text-center text-md-left">
         <Col md={2}>
