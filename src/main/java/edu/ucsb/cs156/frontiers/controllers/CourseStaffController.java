@@ -168,7 +168,13 @@ public class CourseStaffController extends ApiController {
     return courseStaffRepository.save(staffMember);
   }
 
-  @Operation(summary = "Delete a staff member")
+  /**
+   * Deletes a staff member from a course. The course's instructor cannot be deleted: trying to do
+   * so returns 400 Bad Request.
+   */
+  @Operation(
+      summary = "Delete a staff member",
+      description = "The instructor of the course cannot be deleted as a staff member.")
   @PreAuthorize("@CourseSecurity.hasInstructorPermissions(#root, #courseId)")
   @DeleteMapping("/delete")
   @Transactional
@@ -186,6 +192,10 @@ public class CourseStaffController extends ApiController {
             .findById(id)
             .orElseThrow(() -> new EntityNotFoundException(CourseStaff.class, id));
     Course course = staffMember.getCourse();
+
+    if (CourseStaffService.isInstructorStaff(course, staffMember)) {
+      throw new IllegalArgumentException("you cannot delete the instructor as a staff member");
+    }
 
     boolean orgRemovalAttempted = false;
     boolean orgRemovalSuccessful = false;

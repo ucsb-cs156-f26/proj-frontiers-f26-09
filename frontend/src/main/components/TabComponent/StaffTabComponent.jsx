@@ -24,6 +24,8 @@ export default function StaffTabComponent({
   testIdPrefix,
   currentUser,
   isInstructor = true,
+  instructorEmail,
+  courseLoaded = false,
 }) {
   const [postModal, showPostModal] = useState(false);
   const [csvModal, setCsvModal] = useState(false);
@@ -227,6 +229,8 @@ export default function StaffTabComponent({
           courseId={courseId}
           testIdPrefix={`${testIdPrefix}-CourseStaffTable`}
           isInstructor={isInstructor}
+          instructorEmail={instructorEmail}
+          courseLoaded={courseLoaded}
         />
       </Row>
       <CourseEmailsCard

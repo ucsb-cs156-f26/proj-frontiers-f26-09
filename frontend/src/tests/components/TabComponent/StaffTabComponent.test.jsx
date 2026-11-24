@@ -95,6 +95,64 @@ describe("StaffTabComponent Tests", () => {
     expect(staffId0).toHaveTextContent(courseStaffFixtures.threeStaff[0].id);
   });
 
+  test("StaffTabComponent passes instructorEmail to the table, so the instructor's row shows Instructor", async () => {
+    axiosMock
+      .onGet("/api/coursestaff/course?courseId=1")
+      .reply(200, courseStaffFixtures.threeStaff);
+
+    render(
+      <QueryClientProvider client={queryClient}>
+        <StaffTabComponent
+          courseId={1}
+          testIdPrefix={testId}
+          currentUser={currentUserFixtures.instructorUser}
+          instructorEmail={courseStaffFixtures.threeStaff[0].email}
+        />
+      </QueryClientProvider>,
+    );
+
+    const rsTestId = "InstructorCourseShowPage-CourseStaffTable";
+
+    expect(
+      await screen.findByTestId(`${rsTestId}-cell-row-0-col-Delete-instructor`),
+    ).toHaveTextContent("Instructor");
+    expect(
+      screen.queryByTestId(`${rsTestId}-cell-row-0-col-Delete-button`),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByTestId(`${rsTestId}-cell-row-1-col-Delete-button`),
+    ).toBeInTheDocument();
+  });
+
+  test("StaffTabComponent keeps Delete buttons disabled until courseLoaded is true", async () => {
+    axiosMock
+      .onGet("/api/coursestaff/course?courseId=1")
+      .reply(200, courseStaffFixtures.threeStaff);
+    const rsTestId = "InstructorCourseShowPage-CourseStaffTable";
+    const renderTab = (props) => (
+      <QueryClientProvider client={queryClient}>
+        <StaffTabComponent
+          courseId={1}
+          testIdPrefix={testId}
+          currentUser={currentUserFixtures.instructorUser}
+          {...props}
+        />
+      </QueryClientProvider>
+    );
+
+    const { rerender } = render(renderTab({}));
+
+    expect(
+      await screen.findByTestId(`${rsTestId}-cell-row-0-col-Delete-button`),
+    ).toBeDisabled();
+
+    rerender(renderTab({ courseLoaded: true }));
+
+    expect(
+      screen.getByTestId(`${rsTestId}-cell-row-0-col-Delete-button`),
+    ).toBeEnabled();
+  });
+
   test("StaffTabComponent hides staff management controls when not instructor", async () => {
     axiosMock
       .onGet("/api/coursestaff/course?courseId=1")
