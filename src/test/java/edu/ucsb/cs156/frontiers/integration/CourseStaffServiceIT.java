@@ -42,6 +42,8 @@ public class CourseStaffServiceIT {
 
   private static final String INSTRUCTOR_EMAIL = "instructor@ucsb.edu";
 
+  private static final String NEW_INSTRUCTOR_EMAIL = "new-instructor@ucsb.edu";
+
   private Course saveCourse() {
     return courseRepository.save(
         Course.builder()
@@ -90,5 +92,20 @@ public class CourseStaffServiceIT {
     assertEquals("Chris", instructorStaff.getFirstName());
     assertEquals("Gaucho", instructorStaff.getLastName());
     assertEquals(user.getId(), instructorStaff.getUser().getId());
+  }
+
+  @Test
+  public void changingInstructor_addsNewInstructor_andKeepsOldOne() {
+    Course course = saveCourse();
+    courseStaffService.ensureInstructorIsStaff(course);
+
+    course.setInstructorEmail(NEW_INSTRUCTOR_EMAIL);
+    Course updatedCourse = courseRepository.save(course);
+    courseStaffService.ensureInstructorIsStaff(updatedCourse);
+
+    List<CourseStaff> staff = staffFor(updatedCourse);
+    assertEquals(2, staff.size());
+    List<String> staffEmails = staff.stream().map(CourseStaff::getEmail).sorted().toList();
+    assertEquals(List.of(INSTRUCTOR_EMAIL, NEW_INSTRUCTOR_EMAIL), staffEmails);
   }
 }
