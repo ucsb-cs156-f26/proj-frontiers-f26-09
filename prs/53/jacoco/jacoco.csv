@@ -72,7 +72,7 @@ frontiers,edu.ucsb.cs156.frontiers.controllers,UsersController,0,8,0,0,0,2,0,2,0
 frontiers,edu.ucsb.cs156.frontiers.controllers,CATMEController.CATMEStudentRow,0,18,0,0,0,1,0,1,0,1
 frontiers,edu.ucsb.cs156.frontiers.controllers,WebhookController,0,436,0,54,0,102,0,30,0,3
 frontiers,edu.ucsb.cs156.frontiers.controllers,RosterStudentsController.PurgeDroppedResponse,0,12,0,0,0,1,0,1,0,1
-frontiers,edu.ucsb.cs156.frontiers.controllers,CourseStaffCSVController,0,179,0,14,0,41,0,12,0,5
+frontiers,edu.ucsb.cs156.frontiers.controllers,CourseStaffCSVController,0,220,0,20,0,51,0,15,0,5
 frontiers,edu.ucsb.cs156.frontiers.controllers,SlackController.SlackUserView,0,21,0,0,0,1,0,1,0,1
 frontiers,edu.ucsb.cs156.frontiers.controllers,CourseOptionsController,0,154,0,10,0,34,0,11,0,6
 frontiers,edu.ucsb.cs156.frontiers.controllers,CustomErrorController,0,129,0,14,0,29,0,10,0,3

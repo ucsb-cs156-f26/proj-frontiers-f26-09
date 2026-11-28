@@ -16,10 +16,16 @@ import java.io.BufferedInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -31,8 +37,8 @@ import org.springframework.web.server.ResponseStatusException;
 @Tag(name = &quot;CourseStaff&quot;)
 @RequestMapping(&quot;/api/coursestaff&quot;)
 @RestController(&quot;CourseStaffCSVController&quot;)
-<span class="fc" id="L34">@Slf4j</span>
-<span class="fc" id="L35">public class CourseStaffCSVController extends ApiController {</span>
+<span class="fc" id="L40">@Slf4j</span>
+<span class="fc" id="L41">public class CourseStaffCSVController extends ApiController {</span>
 
   @Autowired private CourseStaffRepository courseStaffRepository;
 
@@ -42,82 +48,106 @@ import org.springframework.web.server.ResponseStatusException;
 
   public static final String STAFF_CSV_HEADERS = &quot;firstName,lastName,email&quot;;
 
+  /**
+   * Upload course staff from a CSV file with the headers firstName,lastName,email. Rows whose email
+   * is already on the course's staff, or that repeat an email from an earlier row of the same file,
+   * are not added (emails are compared ignoring upper and lower case); every other row is still
+   * added. If any row was rejected, the response status is 409 (Conflict) and the body lists the
+   * rejected emails.
+   *
+   * @param courseId id of the course
+   * @param file the CSV file
+   * @return the number of staff added, and the rejected emails if there were any
+   */
   @Operation(summary = &quot;Upload Course Staff from CSV&quot;)
   @PreAuthorize(&quot;@CourseSecurity.hasInstructorPermissions(#root, #courseId)&quot;)
   @PostMapping(
       value = &quot;/upload/csv&quot;,
       consumes = {&quot;multipart/form-data&quot;})
-  public Map&lt;String, Integer&gt; uploadStaffCSV(
+  public ResponseEntity&lt;Map&lt;String, Object&gt;&gt; uploadStaffCSV(
       @Parameter(name = &quot;courseId&quot;) @RequestParam Long courseId,
       @Parameter(name = &quot;file&quot;) @RequestParam(&quot;file&quot;) MultipartFile file)
       throws IOException, CsvException {
 
-<span class="fc" id="L55">    Course course =</span>
+<span class="fc" id="L72">    Course course =</span>
         courseRepository
-<span class="fc" id="L57">            .findById(courseId)</span>
-<span class="fc" id="L58">            .orElseThrow(() -&gt; new EntityNotFoundException(Course.class, courseId.toString()));</span>
+<span class="fc" id="L74">            .findById(courseId)</span>
+<span class="fc" id="L75">            .orElseThrow(() -&gt; new EntityNotFoundException(Course.class, courseId.toString()));</span>
 
-<span class="fc" id="L60">    int count = 0;</span>
+<span class="fc" id="L77">    int count = 0;</span>
+<span class="fc" id="L78">    List&lt;String&gt; rejected = new ArrayList&lt;&gt;();</span>
+<span class="fc" id="L79">    Set&lt;String&gt; seenEmails = new HashSet&lt;&gt;();</span>
 
-<span class="fc" id="L62">    try (InputStream inputStream = new BufferedInputStream(file.getInputStream());</span>
-<span class="fc" id="L63">        InputStreamReader reader = new InputStreamReader(inputStream);</span>
-<span class="fc" id="L64">        CSVReader csvReader = new CSVReader(reader)) {</span>
+<span class="fc" id="L81">    try (InputStream inputStream = new BufferedInputStream(file.getInputStream());</span>
+<span class="fc" id="L82">        InputStreamReader reader = new InputStreamReader(inputStream);</span>
+<span class="fc" id="L83">        CSVReader csvReader = new CSVReader(reader)) {</span>
 
-<span class="fc" id="L66">      String[] headers = csvReader.readNext();</span>
-<span class="fc bfc" id="L67" title="All 2 branches covered.">      if (headers == null) {</span>
-<span class="fc" id="L68">        throw new ResponseStatusException(HttpStatus.BAD_REQUEST, &quot;CSV file is empty&quot;);</span>
+<span class="fc" id="L85">      String[] headers = csvReader.readNext();</span>
+<span class="fc bfc" id="L86" title="All 2 branches covered.">      if (headers == null) {</span>
+<span class="fc" id="L87">        throw new ResponseStatusException(HttpStatus.BAD_REQUEST, &quot;CSV file is empty&quot;);</span>
       }
 
-<span class="fc" id="L71">      validateHeaders(headers);</span>
+<span class="fc" id="L90">      validateHeaders(headers);</span>
 
       String[] row;
-<span class="fc bfc" id="L74" title="All 2 branches covered.">      while ((row = csvReader.readNext()) != null) {</span>
-<span class="fc bfc" id="L75" title="All 2 branches covered.">        if (row.length &lt; 3) {</span>
-<span class="fc" id="L76">          throw new ResponseStatusException(</span>
+<span class="fc bfc" id="L93" title="All 2 branches covered.">      while ((row = csvReader.readNext()) != null) {</span>
+<span class="fc bfc" id="L94" title="All 2 branches covered.">        if (row.length &lt; 3) {</span>
+<span class="fc" id="L95">          throw new ResponseStatusException(</span>
               HttpStatus.BAD_REQUEST,
-<span class="fc" id="L78">              String.format(</span>
-<span class="fc" id="L79">                  &quot;CSV row does not have enough columns. Expected at least 3, got %d&quot;, row.length));</span>
+<span class="fc" id="L97">              String.format(</span>
+<span class="fc" id="L98">                  &quot;CSV row does not have enough columns. Expected at least 3, got %d&quot;, row.length));</span>
+        }
+
+<span class="fc" id="L101">        String email = row[2].trim();</span>
+<span class="fc bfc" id="L102" title="All 2 branches covered.">        if (!seenEmails.add(email.toLowerCase(Locale.ROOT))</span>
+<span class="fc bfc" id="L103" title="All 2 branches covered.">            || courseStaffRepository.existsByCourseAndEmailIgnoreCase(course, email)) {</span>
+<span class="fc" id="L104">          rejected.add(email);</span>
+<span class="fc" id="L105">          continue;</span>
         }
 
         CourseStaff courseStaff =
-<span class="fc" id="L83">            CourseStaff.builder()</span>
-<span class="fc" id="L84">                .firstName(row[0].trim())</span>
-<span class="fc" id="L85">                .lastName(row[1].trim())</span>
-<span class="fc" id="L86">                .email(row[2].trim())</span>
-<span class="fc" id="L87">                .course(course)</span>
-<span class="fc" id="L88">                .build();</span>
+<span class="fc" id="L109">            CourseStaff.builder()</span>
+<span class="fc" id="L110">                .firstName(row[0].trim())</span>
+<span class="fc" id="L111">                .lastName(row[1].trim())</span>
+<span class="fc" id="L112">                .email(email)</span>
+<span class="fc" id="L113">                .course(course)</span>
+<span class="fc" id="L114">                .build();</span>
 
-<span class="fc bfc" id="L90" title="All 2 branches covered.">        if (course.getInstallationId() != null) {</span>
-<span class="fc" id="L91">          courseStaff.setOrgStatus(OrgStatus.JOINCOURSE);</span>
+<span class="fc bfc" id="L116" title="All 2 branches covered.">        if (course.getInstallationId() != null) {</span>
+<span class="fc" id="L117">          courseStaff.setOrgStatus(OrgStatus.JOINCOURSE);</span>
         } else {
-<span class="fc" id="L93">          courseStaff.setOrgStatus(OrgStatus.PENDING);</span>
+<span class="fc" id="L119">          courseStaff.setOrgStatus(OrgStatus.PENDING);</span>
         }
 
-<span class="fc" id="L96">        CourseStaff savedCourseStaff = courseStaffRepository.save(courseStaff);</span>
-<span class="fc" id="L97">        updateUserService.attachUserToCourseStaff(savedCourseStaff);</span>
-<span class="fc" id="L98">        count++;</span>
-<span class="fc" id="L99">      }</span>
+<span class="fc" id="L122">        CourseStaff savedCourseStaff = courseStaffRepository.save(courseStaff);</span>
+<span class="fc" id="L123">        updateUserService.attachUserToCourseStaff(savedCourseStaff);</span>
+<span class="fc" id="L124">        count++;</span>
+<span class="fc" id="L125">      }</span>
     }
 
-<span class="fc" id="L102">    return Map.of(&quot;count&quot;, count);</span>
+<span class="fc bfc" id="L128" title="All 2 branches covered.">    if (rejected.isEmpty()) {</span>
+<span class="fc" id="L129">      return ResponseEntity.ok(Map.of(&quot;count&quot;, count));</span>
+    }
+<span class="fc" id="L131">    return ResponseEntity.status(HttpStatus.CONFLICT)</span>
+<span class="fc" id="L132">        .body(Map.of(&quot;count&quot;, count, &quot;rejected&quot;, rejected));</span>
   }
 
   static void validateHeaders(String[] headers) {
-<span class="fc" id="L106">    String[] expectedHeaders = STAFF_CSV_HEADERS.split(&quot;,&quot;);</span>
-<span class="fc bfc" id="L107" title="All 2 branches covered.">    if (headers.length &lt; expectedHeaders.length) {</span>
-<span class="fc" id="L108">      throw new ResponseStatusException(</span>
+<span class="fc" id="L136">    String[] expectedHeaders = STAFF_CSV_HEADERS.split(&quot;,&quot;);</span>
+<span class="fc bfc" id="L137" title="All 2 branches covered.">    if (headers.length &lt; expectedHeaders.length) {</span>
+<span class="fc" id="L138">      throw new ResponseStatusException(</span>
           HttpStatus.BAD_REQUEST,
-<span class="fc" id="L110">          String.format(</span>
+<span class="fc" id="L140">          String.format(</span>
               &quot;CSV headers do not match expected format. Expected: %s&quot;, STAFF_CSV_HEADERS));
     }
-<span class="fc bfc" id="L113" title="All 2 branches covered.">    for (int i = 0; i &lt; expectedHeaders.length; i++) {</span>
-<span class="fc bfc" id="L114" title="All 2 branches covered.">      if (!expectedHeaders[i].trim().equalsIgnoreCase(headers[i].trim())) {</span>
-<span class="fc" id="L115">        throw new ResponseStatusException(</span>
+<span class="fc bfc" id="L143" title="All 2 branches covered.">    for (int i = 0; i &lt; expectedHeaders.length; i++) {</span>
+<span class="fc bfc" id="L144" title="All 2 branches covered.">      if (!expectedHeaders[i].trim().equalsIgnoreCase(headers[i].trim())) {</span>
+<span class="fc" id="L145">        throw new ResponseStatusException(</span>
             HttpStatus.BAD_REQUEST,
-<span class="fc" id="L117">            String.format(</span>
+<span class="fc" id="L147">            String.format(</span>
                 &quot;CSV headers do not match expected format. Expected: %s&quot;, STAFF_CSV_HEADERS));
       }
     }
-<span class="fc" id="L121">  }</span>
+<span class="fc" id="L151">  }</span>
 }
 </pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.15.202606040825</span></div></body></html>
