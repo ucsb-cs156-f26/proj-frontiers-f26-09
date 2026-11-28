@@ -1,0 +1,31 @@
+{ "databaseChangeLog": [
+  {
+    "changeSet": {
+      "id": "030-remove-duplicate-course-staff",
+      "author": "amayabratcher",
+      "comment": "Remove duplicate (course_id, email) rows from COURSE_STAFF before adding the unique constraint. For each duplicate group, keep the row linked to GitHub if there is one, otherwise the oldest row. No other table references COURSE_STAFF rows.",
+      "changes": [
+        {
+          "sql": {
+            "sql": "DELETE FROM course_staff WHERE id IN (SELECT id FROM (SELECT id, ROW_NUMBER() OVER (PARTITION BY course_id, email ORDER BY CASE WHEN github_id IS NULL THEN 1 ELSE 0 END, id) AS rn FROM course_staff) r WHERE rn > 1)"
+          }
+        }
+      ]
+    }
+  },
+  {
+    "changeSet": {
+      "id": "030-add-course-staff-unique-constraint",
+      "author": "amayabratcher",
+      "changes": [
+        {
+          "addUniqueConstraint": {
+            "tableName": "COURSE_STAFF",
+            "columnNames": "COURSE_ID, EMAIL",
+            "constraintName": "UK_COURSE_STAFF_COURSE_EMAIL"
+          }
+        }
+      ]
+    }
+  }
+]}

@@ -188,7 +188,10 @@ export default function TeamsTabComponent({
         }
       },
     },
-    [`/api/teams/all?courseId=${courseId}`],
+    [
+      `/api/teams/all?courseId=${courseId}`,
+      `/api/rosterstudents/course/${courseId}`,
+    ],
   );
 
   const pushTeamsToGithubMutation = useBackendMutation(

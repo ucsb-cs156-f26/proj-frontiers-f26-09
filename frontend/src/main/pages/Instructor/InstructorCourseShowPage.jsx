@@ -24,6 +24,7 @@ import SlackTabComponent from "main/components/TabComponent/SlackTabComponent";
 import DokkuTabComponent from "main/components/TabComponent/DokkuTabComponent";
 import ApiKeysTabComponent from "main/components/TabComponent/ApiKeysTabComponent";
 import EduDoraTabComponent from "main/components/TabComponent/EduDoraTabComponent";
+import CATMETabComponent from "main/components/TabComponent/CATMETabComponent";
 import { slackInfoQueryKey } from "main/utils/slackUtils";
 import {
   COURSE_TABS,
@@ -60,11 +61,16 @@ export default function InstructorCourseShowPage({
   // Which tabs there are depends on the course options, which anyone who can
   // manage the course can read. Staff (the view with no Settings tab) only get
   // the New Assignments tab so far, so for them every other option is treated
-  // as off.
+  // as off when deciding which tabs to show.
   const { data: allCourseOptions } = useCourseOptions(courseId);
   const courseOptions = showSettingsTab
     ? allCourseOptions
     : { NEW_ASSIGNMENT_FEATURES: allCourseOptions.NEW_ASSIGNMENT_FEATURES };
+
+  // When the TRANSLATE_SECTIONS course option is enabled, section values in the
+  // student lists are shown with their labels, for staff as well as for
+  // instructors.
+  const translateSections = allCourseOptions.TRANSLATE_SECTIONS === true;
 
   // The Sections tab is only shown when the TRANSLATE_SECTIONS course option
   // is enabled.
@@ -84,6 +90,10 @@ export default function InstructorCourseShowPage({
   // The EduDora tab is only shown when the ENABLE_EDUDORA course option is
   // enabled.
   const showEduDoraTab = courseOptions.ENABLE_EDUDORA === true;
+
+  // The CATME tab is only shown when the ENABLE_CATME course option is
+  // enabled.
+  const showCATMETab = courseOptions.ENABLE_CATME === true;
 
   // The Slack tab is only shown when the SLACK_INTEGRATION course option is
   // enabled and a Slack token has been saved. The query key is shared with the
@@ -112,6 +122,7 @@ export default function InstructorCourseShowPage({
       (tab !== "slack" || showSlackTab) &&
       (tab !== "api-keys" || showApiKeysTab) &&
       (tab !== "edudora" || showEduDoraTab) &&
+      (tab !== "catme" || showCATMETab) &&
       (tab !== "settings" || showSettingsTab),
   );
   const activeTab = chooseCourseTab({
@@ -245,7 +256,7 @@ export default function InstructorCourseShowPage({
             testIdPrefix={testId}
             currentUser={currentUser}
             canEditStudents={canEditStudents}
-            translateSections={showSectionsTab}
+            translateSections={translateSections}
             canvasEnabled={courseOptions.ENABLE_CANVAS === true}
           />
         </Tab>
@@ -325,6 +336,11 @@ export default function InstructorCourseShowPage({
         {showEduDoraTab && (
           <Tab eventKey={"edudora"} title={"EduDora"} className="pt-2">
             <EduDoraTabComponent testIdPrefix={testId} />
+          </Tab>
+        )}
+        {showCATMETab && (
+          <Tab eventKey={"catme"} title={"CATME"} className="pt-2">
+            <CATMETabComponent testIdPrefix={testId} />
           </Tab>
         )}
         {showSettingsTab && (
