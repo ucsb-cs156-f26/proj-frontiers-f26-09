@@ -69,7 +69,18 @@ export default function StaffTabComponent({
 
   const staffPostMutation = useBackendMutation(
     objectToAxiosParamsPost,
-    { onSuccess: () => onSuccessStaff(showPostModal) },
+    {
+      onSuccess: () => onSuccessStaff(showPostModal),
+      onError: (error) => {
+        if (error.response.status === 409) {
+          toast.error(
+            "A staff member with that email already exists in this course.",
+          );
+        } else {
+          toast.error(`${error}`);
+        }
+      },
+    },
     [
       `/api/coursestaff/course?courseId=${courseId}`,
       courseEmailsQueryKey(courseId),

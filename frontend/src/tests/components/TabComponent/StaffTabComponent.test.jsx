@@ -269,6 +269,47 @@ describe("StaffTabComponent Tests", () => {
     );
   });
 
+  test.each([
+    [409, "A staff member with that email already exists in this course."],
+    [500, "Error: Request failed with status code 500"],
+  ])(
+    "Adding a staff member that fails with status %i shows an error toast and keeps the modal open",
+    async (status, expectedMessage) => {
+      axiosMock
+        .onGet("/api/coursestaff/course?courseId=7")
+        .reply(200, courseStaffFixtures.threeStaff);
+      axiosMock.onPost("/api/coursestaff/post").reply(status);
+
+      render(
+        <QueryClientProvider client={queryClient}>
+          <StaffTabComponent
+            courseId={7}
+            testIdPrefix={testId}
+            currentUser={currentUserFixtures.instructorUser}
+          />
+        </QueryClientProvider>,
+      );
+
+      fireEvent.click(await screen.findByTestId(`${testId}-post-button`));
+      await screen.findByLabelText("First Name");
+      fireEvent.change(screen.getByLabelText("First Name"), {
+        target: { value: "Chris" },
+      });
+      fireEvent.change(screen.getByLabelText("Last Name"), {
+        target: { value: "Gaucho" },
+      });
+      fireEvent.change(screen.getByLabelText("Email"), {
+        target: { value: "cgaucho@ucsb.edu" },
+      });
+      fireEvent.click(screen.getByTestId("CourseStaffForm-submit"));
+
+      await waitFor(() => expect(mockToastError).toBeCalled());
+      expect(mockToastError).toBeCalledWith(expectedMessage);
+      expect(mockToastError).toHaveBeenCalledTimes(1);
+      expect(mockToast).not.toBeCalled();
+      expect(screen.getByTestId(`${testId}-post-modal`)).toBeInTheDocument();
+    },
+  );
   describe("Search filter works correctly", () => {
     const testId = "InstructorCourseShowPage";
     const rsTestId = "InstructorCourseShowPage-CourseStaffTable";

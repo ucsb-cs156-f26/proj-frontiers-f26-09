@@ -20,6 +20,7 @@ import edu.ucsb.cs156.frontiers.repositories.InstructorRepository;
 import edu.ucsb.cs156.frontiers.repositories.RosterStudentRepository;
 import edu.ucsb.cs156.frontiers.repositories.UserRepository;
 import edu.ucsb.cs156.frontiers.services.CanvasApiTokenSecurityService;
+import edu.ucsb.cs156.frontiers.services.CourseStaffService;
 import edu.ucsb.cs156.frontiers.services.OrganizationLinkerService;
 import edu.ucsb.cs156.jobs.repositories.JobsRepository;
 import io.swagger.v3.oas.annotations.Operation;
@@ -67,8 +68,11 @@ public class CoursesController extends ApiController {
 
   @Autowired private JobsRepository jobsRepository;
 
+  @Autowired private CourseStaffService courseStaffService;
+
   /**
-   * This method creates a new Course.
+   * This method creates a new Course. The instructor (the user creating the course) is also added
+   * as a staff member of the new course.
    *
    * @param courseName the name of the course
    * @param term the term of the course
@@ -97,6 +101,7 @@ public class CoursesController extends ApiController {
             .canvasCourseId(canvasCourseId)
             .build();
     Course savedCourse = courseRepository.save(course);
+    courseStaffService.ensureInstructorIsStaff(savedCourse);
 
     return new InstructorCourseView(savedCourse);
   }
