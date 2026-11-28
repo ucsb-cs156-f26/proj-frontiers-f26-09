@@ -2,11 +2,14 @@ package edu.ucsb.cs156.frontiers.repositories;
 
 import edu.ucsb.cs156.frontiers.entities.Course;
 import edu.ucsb.cs156.frontiers.entities.CourseStaff;
+import edu.ucsb.cs156.frontiers.entities.User;
 import java.util.List;
 import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface CourseStaffRepository extends JpaRepository<CourseStaff, Long> {
+  List<CourseStaff> findAllByUser(User user);
+
   /**
    * This method returns a CourseStaff entity with a given email.
    *
@@ -31,6 +34,16 @@ public interface CourseStaffRepository extends JpaRepository<CourseStaff, Long> 
    * @return Optional of CourseStaff (empty if not found)
    */
   Optional<CourseStaff> findByEmailAndCourse(String email, Course course);
+
+  /**
+   * This method checks whether a course has at least one staff member with a given email. Unlike
+   * findByEmailAndCourse, it is safe to call when duplicate rows exist.
+   *
+   * @param email email address of the course staff
+   * @param course the course associated with the course staff
+   * @return true if at least one matching CourseStaff exists
+   */
+  boolean existsByEmailAndCourse(String email, Course course);
 
   Optional<CourseStaff> findByCourseAndGithubLogin(Course course, String githubLogin);
 }
