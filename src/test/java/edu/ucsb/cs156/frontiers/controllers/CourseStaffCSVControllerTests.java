@@ -22,6 +22,7 @@ import edu.ucsb.cs156.frontiers.repositories.CourseRepository;
 import edu.ucsb.cs156.frontiers.repositories.CourseStaffRepository;
 import edu.ucsb.cs156.frontiers.services.CurrentUserService;
 import edu.ucsb.cs156.frontiers.services.UpdateUserService;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import lombok.extern.slf4j.Slf4j;
@@ -334,5 +335,58 @@ public class CourseStaffCSVControllerTests extends ControllerTestCase {
         .andExpect(status().isBadRequest());
 
     verify(courseStaffRepository, never()).save(any(CourseStaff.class));
+  }
+
+  @Test
+  @WithInstructorCoursePermissions
+  public void upload_adds_valid_rows_and_rejects_duplicates() throws Exception {
+    Course course =
+        Course.builder()
+            .id(1L)
+            .courseName("CS156")
+            .orgName("ucsb-cs156-s25")
+            .term("S25")
+            .school(School.UCSB)
+            .build();
+
+    String csv =
+        """
+        firstName,lastName,email
+        Chris,Gaucho,CGaucho@Example.org
+        Lauren,Del Playa,ldelplaya@ucsb.edu
+        Lauren,Again, LDelPlaya@UCSB.edu
+        Sam,Storke,sstorke@ucsb.edu
+        """;
+
+    when(courseRepository.findById(eq(1L))).thenReturn(Optional.of(course));
+    when(courseStaffRepository.existsByCourseAndEmailIgnoreCase(
+            eq(course), eq("CGaucho@Example.org")))
+        .thenReturn(true);
+    when(courseStaffRepository.save(any(CourseStaff.class)))
+        .thenAnswer(invocation -> invocation.getArgument(0));
+
+    MockMultipartFile file =
+        new MockMultipartFile("file", "staff.csv", MediaType.TEXT_PLAIN_VALUE, csv.getBytes());
+
+    MvcResult response =
+        mockMvc
+            .perform(
+                multipart("/api/coursestaff/upload/csv")
+                    .file(file)
+                    .param("courseId", "1")
+                    .with(csrf()))
+            .andExpect(status().isConflict())
+            .andReturn();
+
+    ArgumentCaptor<CourseStaff> captor = ArgumentCaptor.forClass(CourseStaff.class);
+    verify(courseStaffRepository, times(2)).save(captor.capture());
+    assertEquals("ldelplaya@ucsb.edu", captor.getAllValues().get(0).getEmail());
+    assertEquals("Del Playa", captor.getAllValues().get(0).getLastName());
+    assertEquals("sstorke@ucsb.edu", captor.getAllValues().get(1).getEmail());
+    verify(updateUserService, times(2)).attachUserToCourseStaff(any(CourseStaff.class));
+
+    Map<?, ?> body = objectMapper.readValue(response.getResponse().getContentAsString(), Map.class);
+    assertEquals(
+        Map.of("count", 2, "rejected", List.of("CGaucho@Example.org", "LDelPlaya@UCSB.edu")), body);
   }
 }
