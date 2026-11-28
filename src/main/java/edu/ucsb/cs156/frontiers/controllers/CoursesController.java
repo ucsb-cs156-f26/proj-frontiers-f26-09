@@ -417,7 +417,17 @@ public class CoursesController extends ApiController {
         .collect(Collectors.toList());
   }
 
-  @Operation(summary = "Update instructor email for a course (admin only)")
+  /**
+   * This method changes the instructor of a course (admin only). The new instructor is also added
+   * as a staff member of the course, unless they are already on staff. The old instructor stays on
+   * the staff list and can be kept or removed by hand.
+   *
+   * @param courseId the id of the course
+   * @param instructorEmail the email of the new instructor (must be an instructor or admin)
+   */
+  @Operation(
+      summary = "Update instructor email for a course (admin only)",
+      description = "The new instructor is also added as a staff member of the course.")
   @PreAuthorize("hasRole('ROLE_ADMIN')")
   @PutMapping("/updateInstructor")
   public InstructorCourseView updateInstructorEmail(
@@ -441,6 +451,7 @@ public class CoursesController extends ApiController {
 
     course.setInstructorEmail(instructorEmail);
     Course savedCourse = courseRepository.save(course);
+    courseStaffService.ensureInstructorIsStaff(savedCourse);
 
     return new InstructorCourseView(savedCourse);
   }
