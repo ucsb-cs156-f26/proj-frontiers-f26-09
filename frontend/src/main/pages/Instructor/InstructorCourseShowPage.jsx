@@ -266,6 +266,7 @@ export default function InstructorCourseShowPage({
             testIdPrefix={testId}
             currentUser={currentUser}
             isInstructor={staffTabIsInstructor}
+            instructorEmail={course?.instructorEmail}
           />
         </Tab>
         <Tab eventKey={"teams"} title={"Teams"} className="pt-2">
