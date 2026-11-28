@@ -10,6 +10,7 @@ const optionsState = {
   SLACK_INTEGRATION: false,
   NEW_ASSIGNMENT_FEATURES: false,
   ENABLE_EDUDORA: false,
+  ENABLE_CATME: false,
 };
 
 export default {
