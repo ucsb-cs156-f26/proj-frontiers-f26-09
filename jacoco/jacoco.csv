@@ -83,7 +83,7 @@ frontiers,edu.ucsb.cs156.frontiers.controllers,TeamsController,0,764,0,50,0,146,
 frontiers,edu.ucsb.cs156.frontiers.controllers,DownloadRequestController,0,183,0,6,0,52,0,9,0,6
 frontiers,edu.ucsb.cs156.frontiers.controllers,CanvasController,0,319,0,12,0,79,0,19,0,13
 frontiers,edu.ucsb.cs156.frontiers.controllers,CourseApiKeyController,0,98,0,6,0,21,0,11,0,8
-frontiers,edu.ucsb.cs156.frontiers.controllers,CoursesController,0,777,0,48,0,196,0,60,0,36
+frontiers,edu.ucsb.cs156.frontiers.controllers,CoursesController,0,781,0,48,0,197,0,60,0,36
 frontiers,edu.ucsb.cs156.frontiers.controllers,CoursesController.InstructorCourseView,0,73,0,4,0,14,0,4,0,2
 frontiers,edu.ucsb.cs156.frontiers.controllers,TeamsController.TeamMemberMapping,0,49,0,0,0,9,0,2,0,2
 frontiers,edu.ucsb.cs156.frontiers.controllers,SlackController.SlackMissingMemberView,0,18,0,0,0,1,0,1,0,1
@@ -125,7 +125,7 @@ frontiers,edu.ucsb.cs156.frontiers.jobs,PullTeamsFromGithubJob,0,638,0,76,0,153,
 frontiers,edu.ucsb.cs156.frontiers.jobs,UpdateAllJob,0,10,0,0,0,4,0,1,0,1
 frontiers,edu.ucsb.cs156.frontiers.jobs,SetupTeamSlackChannelsJob,0,972,0,84,0,176,0,53,0,11
 frontiers,edu.ucsb.cs156.frontiers.startup,FrontiersApplicationRunner,0,14,0,0,0,5,0,3,0,3
-frontiers,edu.ucsb.cs156.frontiers.startup,FrontiersStartup,0,72,0,6,0,20,0,8,0,5
+frontiers,edu.ucsb.cs156.frontiers.startup,FrontiersStartup,0,120,0,12,0,36,0,12,0,6
 frontiers,edu.ucsb.cs156.frontiers.startup,WiremockApplicationRunner,0,17,0,0,0,6,0,3,0,3
 frontiers,edu.ucsb.cs156.frontiers.utilities,WebhookSecurityUtils,0,112,0,12,0,27,0,11,0,5
 frontiers,edu.ucsb.cs156.frontiers.utilities,CanonicalFormConverter,0,17,0,0,0,4,0,3,0,3
